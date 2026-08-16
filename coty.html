@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coty · Visor y comparador de Markdown</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+<script src="https://unpkg.com/@twemoji/api@17.0.3/dist/twemoji.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" disabled>
+<style>
+:root{
+  --bg:#faf7f2; --bg2:#f0ece4; --surface:#ffffff; --border:#ddd6c9;
+  --ink:#2b2822; --ink2:#6f6a5e; --accent:#b97a1e; --accent2:#8a5a12;
+  --add-bg:#e3f2e3; --add-ink:#1a6b2f; --del-bg:#fde5e5; --del-ink:#a12626;
+  --hunk-bg:#e8eef7; --hunk-ink:#3a5a8c; --shadow:0 2px 10px rgba(60,50,30,.08);
+  --mono:'Cascadia Code','JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+html.dark{
+  --bg:#16181d; --bg2:#1d2026; --surface:#22252c; --border:#33373f;
+  --ink:#e5e2da; --ink2:#9a968c; --accent:#e8a33d; --accent2:#f2bb63;
+  --add-bg:#12331c; --add-ink:#6fce8c; --del-bg:#3a1717; --del-ink:#f08c8c;
+  --hunk-bg:#1d2b40; --hunk-ink:#8ab0e8; --shadow:0 2px 12px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+img.emoji{height:1.15em;width:1.15em;margin:0 .04em;vertical-align:-.2em;display:inline-block}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;overflow:hidden;transition:background .25s,color .25s}
+
+/* ---------- Header ---------- */
+header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.logo{font-family:var(--mono);font-weight:700;font-size:17px;letter-spacing:.5px;white-space:nowrap}
+.logo b{color:var(--accent)}
+.toolbar{display:flex;gap:6px;margin-left:auto;align-items:center}
+button{font-family:var(--sans);font-size:13px;width:34px;height:34px;padding:0;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background .15s,border-color .15s;flex:none}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent2)}
+button.active{border-color:var(--accent);color:var(--accent);font-weight:600}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.lbl{display:none}
+
+/* ---------- Menú de ajustes (engrane) ---------- */
+.settings-wrap{position:relative}
+.settings-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:50;min-width:230px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.28);padding:6px;display:flex;flex-direction:column;gap:1px}
+.settings-menu[hidden]{display:none}
+
+/* ---------- Modal de historial ---------- */
+.modal-overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay[hidden]{display:none}
+.modal-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:14.5px}
+.modal-body{overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);flex-wrap:wrap}
+.history-item-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.history-date{font-weight:600;font-size:13.5px}
+.history-trigger{font-family:var(--mono);font-size:11px;color:var(--ink2)}
+.history-size{font-family:var(--mono);font-size:11px;color:var(--ink2);opacity:.8}
+.history-item-actions{display:flex;gap:6px;flex:none}
+.history-item-actions .mini{width:auto;padding:6px 10px;font-size:12px}
+.history-hint{padding:6px 12px;font-size:11.5px;color:var(--ink2);border-bottom:1px solid var(--border);background:var(--bg2)}
+.save-choice-btn{width:100%;height:auto;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer}
+.newfile-label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink2);margin-bottom:4px}
+.newfile-input{width:100%;height:auto;font-family:var(--sans);font-size:14px;padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.newfile-input:focus{outline:none;border-color:var(--accent)}
+select.newfile-input{cursor:pointer}
+.save-choice-btn:hover{border-color:var(--accent);background:var(--surface)}
+.save-choice-icon{font-size:22px;flex:none}
+.save-choice-text{font-size:13.5px;font-weight:400;line-height:1.4}
+.save-choice-sub{font-size:11px;color:var(--ink2);font-weight:400}
+.file-dirty-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--fire,#e8734a);margin-left:3px;vertical-align:middle}
+.file-disk-icon{font-size:11px;opacity:.75;margin-left:3px;vertical-align:middle}
+.linklike{width:auto;height:auto;padding:0;border:none;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:11.5px;display:inline}
+.settings-group-label{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);padding:9px 10px 4px;opacity:.75}
+.settings-item{width:100%;height:auto;justify-content:space-between;padding:9px 10px;border:none;border-radius:8px;background:transparent;font-size:13.5px;font-weight:400;text-align:left}
+.settings-item:hover{background:var(--bg2);border-color:transparent}
+.settings-item.danger{color:var(--del-ink,#da7e7e)}
+.settings-item span:first-child{white-space:nowrap}
+.settings-toggle{width:34px;height:19px;border-radius:20px;background:var(--border);position:relative;flex:none;transition:background .18s}
+.settings-toggle::after{content:'';position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.settings-toggle.on{background:var(--accent)}
+.settings-toggle.on::after{transform:translateX(15px)}
+#mHtmlLock .settings-toggle.on{background:var(--safe,#8bc78b)}
+
+/* ---------- File chips ---------- */
+#filebar{display:flex;gap:6px;padding:7px 14px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;min-height:44px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12.5px;padding:5px 8px 5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);white-space:nowrap;cursor:grab}
+.chip.droptarget{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.chip .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.chip .x{width:18px;height:18px;border-radius:50%;border:none;padding:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;background:transparent;color:var(--ink2)}
+.chip .x:hover{background:var(--del-bg);color:var(--del-ink)}
+#filebar .hint{color:var(--ink2);font-size:12.5px;font-style:italic}
+
+/* ---------- Main / panes ---------- */
+main{flex:1;display:flex;min-height:0;position:relative}
+.pane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.pane + .pane{border-left:3px solid var(--accent)}
+.pane-head{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2)}
+
+/* ---------- Buscador in-panel ---------- */
+.search-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.search-bar[hidden]{display:none}
+.search-bar input{flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.search-bar input:focus{outline:none;border-color:var(--accent,#dbb876)}
+.search-count{font-family:var(--mono);font-size:11.5px;color:var(--ink2);white-space:nowrap;min-width:38px;text-align:center}
+.search-bar .mini{padding:5px 8px;font-size:12px}
+mark.hit{background:rgba(219,184,118,.35);color:inherit;border-radius:2px;padding:0 1px}
+mark.hit.active{background:rgba(219,184,118,.75);box-shadow:0 0 0 1px rgba(219,184,118,.9)}
+.pane-head select{flex:1;min-width:0;font-family:var(--mono);font-size:13px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.pane-head .mini{padding:5px 8px;font-size:12px}
+.pane-body{flex:1;overflow:auto;padding:22px clamp(14px,4%,48px)}
+.pane-body.raw{font-family:var(--mono);font-size:13px;white-space:pre-wrap;word-break:break-word}
+.pane-body pre.code-standalone{margin:0;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+
+/* ---------- Editor in-panel ---------- */
+.edit-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.edit-bar .hint{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.edit-bar .mini.save{border-color:var(--add-ink);color:var(--add-ink)}
+.edit-bar .mini.cancel{color:var(--ink2)}
+.editor-wrap{display:flex;font-family:var(--mono);font-size:13px;line-height:1.6;min-height:100%}
+.editor-lines{flex:none;width:44px;padding:14px 8px 14px 4px;text-align:right;color:var(--ink2);user-select:none;opacity:.55;white-space:pre}
+.editor-code{flex:1;min-width:0;padding:14px clamp(14px,3%,32px);white-space:pre-wrap;word-break:break-word;outline:none;caret-color:var(--ambar,#dbb876)}
+.editor-code:focus{background:var(--glass,rgba(219,184,118,.03))}
+
+/* ---------- JSON tree ---------- */
+.jtree{font-family:var(--mono);font-size:13px;line-height:1.85}
+.jline{white-space:nowrap;position:relative}
+.jk{color:var(--brujo,#e8734a)}
+.jp{color:var(--ink-dim,#8a8f98)}
+.jv-str{color:#c8935a}
+.jv-num{color:#7ea8c4}
+.jv-bool{color:#a389c9}
+.jv-null{color:#8a8f98;font-style:italic}
+.jcount{color:var(--ink-dim,#8a8f98);font-size:.78em;opacity:.7}
+.jtoggle{border:none;background:none;color:var(--ink-dim,#8a8f98);cursor:pointer;font-size:.75em;padding:0 4px 0 0;font-family:inherit;vertical-align:middle}
+.jchildren{transition:none}
+.jchildren.collapsed{display:none}
+.jparent.collapsed-parent > .jtoggle{transform:rotate(-90deg);display:inline-block}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--ink2);gap:12px;text-align:center;padding:20px}
+.empty-formats{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--ink2);opacity:.7;letter-spacing:.02em}
+.empty svg{width:52px;height:52px;stroke:var(--ink2);fill:none;stroke-width:1.4}
+
+/* ---------- Markdown ---------- */
+.md{max-width:900px;margin:0 auto;line-height:1.65;font-size:15.5px}
+.md h1,.md h2,.md h3{line-height:1.25;margin:1.4em 0 .5em}
+.md h1{font-size:1.9em;border-bottom:2px solid var(--border);padding-bottom:.25em}
+.md h2{font-size:1.45em;border-bottom:1px solid var(--border);padding-bottom:.2em}
+.md h3{font-size:1.15em}
+.md a{color:var(--accent2)}
+.md code{font-family:var(--mono);font-size:.88em;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+.md pre code{background:none;border:none;padding:0;font-size:13px;line-height:1.55}
+.md blockquote{margin:1em 0;padding:.4em 1em;border-left:4px solid var(--accent);background:var(--bg2);border-radius:0 6px 6px 0;color:var(--ink2)}
+.md table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid var(--border);padding:6px 12px}
+.md th{background:var(--bg2)}
+.md img{max-width:100%;border-radius:8px}
+.md hr{border:none;border-top:1px solid var(--border);margin:2em 0}
+
+/* ---------- LaTeX (KaTeX) ---------- */
+.md .katex{font-size:1.06em}
+.md .katex-display{margin:1em 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.md .latex-error{font-family:var(--mono);font-size:.88em;background:var(--del-bg);color:var(--del-ink);border:1px solid var(--del-ink);border-radius:6px;padding:2px 6px}
+html.dark .md .katex{color:var(--ink)}
+
+/* ---------- Code blocks ---------- */
+.codeblock{margin:1.1em 0;border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}
+.codeblock-head{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;background:var(--bg2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11.5px;color:var(--ink2);text-transform:uppercase;letter-spacing:.8px}
+.copy-btn{font-size:11.5px;padding:3px 9px;border-radius:5px}
+.copy-btn.ok{border-color:var(--add-ink);color:var(--add-ink)}
+.codeblock pre{margin:0;padding:13px 15px;overflow-x:auto;background:var(--surface)}
+
+/* ---------- Diff (fences y comparador) ---------- */
+.diffwrap{font-family:var(--mono);font-size:12.8px;line-height:1.6;background:var(--surface);overflow-x:auto}
+.dl{display:flex;white-space:pre;min-width:max-content}
+.dl .ln{flex:none;width:44px;padding:0 8px 0 4px;text-align:right;color:var(--ink2);user-select:none;opacity:.65}
+.dl .tx{padding-right:16px}
+.dl.add{background:var(--add-bg);color:var(--add-ink)}
+.dl.del{background:var(--del-bg);color:var(--del-ink)}
+.dl.hunk{background:var(--hunk-bg);color:var(--hunk-ink);font-weight:600}
+.dl.meta{color:var(--ink2);font-style:italic}
+
+/* ---------- Compare view ---------- */
+#compare{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.cmp-head{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;font-size:13.5px}
+.cmp-head .names{font-family:var(--mono);font-size:12.5px}
+.badge{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.badge.same{background:var(--add-bg);color:var(--add-ink)}
+.badge.diff{background:var(--del-bg);color:var(--del-ink)}
+.cmp-body{flex:1;overflow:auto;padding:16px}
+.cmp-body .diffwrap{border:1px solid var(--border);border-radius:10px;max-width:1100px;margin:0 auto}
+.stats{color:var(--ink2);font-size:12.5px;font-family:var(--mono)}
+.stats .plus{color:var(--add-ink);font-weight:700}
+.stats .minus{color:var(--del-ink);font-weight:700}
+
+/* ---------- Merge ---------- */
+#merge{flex:1;display:flex;flex-direction:column;min-height:0}
+.merge-body{flex:1;overflow:auto;padding:16px;max-width:1100px;margin:0 auto;width:100%}
+.hunk{border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow)}
+.hunk-head{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:12.5px;flex-wrap:wrap}
+.hunk-head .pick{margin-left:auto;display:flex;gap:5px}
+.hunk-head .pick button{font-size:11.5px;padding:3px 10px}
+.hunk-head .pick button.sel-a{background:var(--del-bg);border-color:var(--del-ink);color:var(--del-ink);font-weight:700}
+.hunk-head .pick button.sel-b{background:var(--add-bg);border-color:var(--add-ink);color:var(--add-ink);font-weight:700}
+.hunk-head .pick button.sel-ab{border-color:var(--accent);color:var(--accent);font-weight:700}
+.hunk .sides{display:flex}
+.hunk .side{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;line-height:1.55;padding:10px 12px;white-space:pre-wrap;word-break:break-word}
+.hunk .side.a{background:var(--del-bg);color:var(--del-ink)}
+.hunk .side.b{background:var(--add-bg);color:var(--add-ink);border-left:1px solid var(--border)}
+.hunk .side .tag{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;opacity:.7;display:block;margin-bottom:4px;font-family:var(--sans);font-weight:700}
+.ctx{font-family:var(--mono);font-size:12px;color:var(--ink2);padding:4px 14px;white-space:pre-wrap;border-left:3px solid var(--border);margin:0 0 14px;opacity:.8;max-height:120px;overflow:auto}
+.merge-actions{position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.merge-actions .stats{margin-right:auto}
+
+/* ---------- Dropzone ---------- */
+#dropzone{position:fixed;inset:0;background:color-mix(in srgb,var(--accent) 14%,transparent);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50;pointer-events:none}
+#dropzone.on{display:flex}
+#dropzone .box{border:3px dashed var(--accent);border-radius:18px;padding:40px 60px;font-size:20px;font-weight:600;background:var(--surface);color:var(--accent)}
+
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:9px;font-size:13.5px;opacity:0;transition:opacity .25s;z-index:60;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1}
+
+@media (max-width:760px){
+  main.split{flex-direction:column}
+  .pane + .pane{border-left:none;border-top:3px solid var(--accent)}
+  .hunk .sides{flex-direction:column}
+  .hunk .side.b{border-left:none;border-top:1px solid var(--border)}
+  .toolbar button .lbl{display:none}
+  .pane-body{padding:16px 12px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">◈ <b>Coty</b></span>
+  <div class="toolbar">
+    <button id="btnOpen" class="primary" title="Abrir archivo"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg></button>
+    <button id="btnSplit" title="Dividir pantalla"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></button>
+    <button id="btnCompare" disabled title="Comparar"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M9 8h6M9 16h6"/></svg></button>
+    <button id="btnMerge" disabled title="Merge"><svg viewBox="0 0 24 24"><path d="M6 3v6a6 6 0 006 6h6M18 3v18M18 15l3 3-3 3M6 3L3 6m3-3l3 3"/></svg></button>
+    <div class="settings-wrap">
+      <button id="btnSettings" title="Ajustes"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+      <div class="settings-menu" id="settingsMenu" hidden>
+        <div class="settings-group-label">Archivo</div>
+        <button class="settings-item" id="mNewFile"><span>➕ Nuevo archivo</span></button>
+        <div class="settings-group-label">Vista</div>
+        <button class="settings-item" id="mTheme"><span>Tema oscuro</span><span class="settings-toggle" id="mThemeToggle"></span></button>
+        <button class="settings-item" id="mFS"><span>Pantalla completa</span><span class="settings-toggle" id="mFSToggle"></span></button>
+        <div class="settings-group-label">HTML</div>
+        <button class="settings-item" id="mHtmlLock"><span>JS en preview</span><span class="settings-toggle" id="mHtmlLockToggle"></span></button>
+        <div class="settings-group-label">Historial</div>
+        <button class="settings-item" id="mHistoryConnect"><span id="mHistoryConnectLbl">Conectar carpeta…</span></button>
+        <div class="settings-group-label">Sesión</div>
+        <button class="settings-item danger" id="mClearAll"><span>Cerrar todo</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="filebar"></div>
+<main id="main"></main>
+<input type="file" id="fileInput" accept=".md,.markdown,.txt,.py,.js,.html,.htm,.csv,.json,.yaml,.yml,.c,.h,.cpp,.cc,.hpp,.glsl,.vert,.frag" multiple hidden>
+<div id="dropzone"><div class="box">Suelta tus archivos .md aquí</div></div>
+<div id="toast"></div>
+
+<div id="historyModal" class="modal-overlay" hidden>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <span id="historyModalTitle">Historial</span>
+      <button class="mini" id="historyModalClose" title="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" id="historyModalBody"></div>
+  </div>
+</div>
+<input type="file" id="historyDirInput" webkitdirectory multiple hidden>
+
+<div id="saveChoiceModal" class="modal-overlay" hidden>
+  <div class="modal-panel" style="max-width:340px">
+    <div class="modal-head">
+      <span>¿Cómo deseas preservar estos cambios?</span>
+    </div>
+    <div class="modal-body" style="gap:8px">
+      <button class="save-choice-btn" id="saveChoiceDisk">
+        <span class="save-choice-icon">💾</span>
+        <span class="save-choice-text"><b>Guardar en disco</b><br><span class="save-choice-sub">Necesita permisos de carpeta</span></span>
+      </button>
+      <button class="save-choice-btn" id="saveChoiceDownload">
+        <span class="save-choice-icon">⬇️</span>
+        <span class="save-choice-text"><b>Descargar</b><br><span class="save-choice-sub">Nueva versión, sin permisos</span></span>
+      </button>
+      <button class="mini" id="saveChoiceCancel" style="width:100%;margin-top:4px" title="Solo memoria por ahora">Solo memoria (cerrar)</button>
+    </div>
+  </div>
+</div>
+
+<div id="newFileModal" class="modal-overlay" hidden>
+  <div class="modal-panel" style="max-width:340px">
+    <div class="modal-head">
+      <span>Nuevo archivo</span>
+      <button class="mini" id="newFileClose" title="Cerrar">✕</button>
+    </div>
+    <div class="modal-body" style="gap:10px">
+      <div>
+        <label class="newfile-label" for="newFileName">Nombre</label>
+        <input type="text" id="newFileName" class="newfile-input" placeholder="notas" autocomplete="off">
+      </div>
+      <div>
+        <label class="newfile-label" for="newFileExt">Formato</label>
+        <select id="newFileExt" class="newfile-input">
+          <option value="md">.md — Markdown</option>
+          <option value="txt">.txt — Texto plano</option>
+          <option value="py">.py — Python</option>
+          <option value="js">.js — JavaScript</option>
+          <option value="html">.html — HTML</option>
+          <option value="c">.c — C</option>
+          <option value="cpp">.cpp — C++</option>
+          <option value="glsl">.glsl — GLSL Shader</option>
+          <option value="yaml">.yaml — YAML</option>
+          <option value="csv">.csv — CSV</option>
+          <option value="json">.json — JSON</option>
+        </select>
+      </div>
+      <button class="save-choice-btn" id="newFileCreate" style="justify-content:center">
+        <span class="save-choice-text"><b>Crear y editar</b></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= Estado ================= */
+const S = {
+  files: [],            // {id, name, content}
+  panes: [{fileId:null, raw:false}],
+  split: false,
+  mode: 'view',         // view | compare | merge
+  hunks: [],            // merge hunks
+  dark: matchMedia('(prefers-color-scheme:dark)').matches,
+  htmlJsEnabled: true,   // candado del preview de .html: true = JS corre libre, false = sandbox sin scripts
+  historyDirHandle: null,   // handle de la carpeta .history (File System Access API), null = no conectada
+  workDirs: [],   // handles de carpetas de trabajo ya autorizadas en esta sesión, para edición en caliente
+};
+let uid = 0;
+const $ = s => document.querySelector(s);
+const COLORS = ['#b97a1e','#3a7bd5','#2f9e5f','#c04ab0','#d05436','#6a5acd','#0e9aa7','#8a6d3b'];
+
+/* ---------- Persistencia de sesión ---------- */
+const SESSION_KEY='cotejo:session:v1';
+let saveSessionTimer=null;
+function saveSession(){
+  clearTimeout(saveSessionTimer);
+  saveSessionTimer=setTimeout(()=>{
+    try{
+      const payload={
+        files:S.files.map(f=>({id:f.id,name:f.name,content:f.content})),
+        panes:S.panes.map(p=>({fileId:p.fileId,raw:p.raw})),
+        split:S.split,
+        mode:S.mode,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    }catch(e){ /* cuota excedida u otro error de storage: fallamos en silencio, no es crítico */ }
+  }, 300);
+}
+function loadSession(){
+  try{
+    const raw=localStorage.getItem(SESSION_KEY);
+    if(!raw) return false;
+    const data=JSON.parse(raw);
+    if(!data.files || !data.files.length) return false;
+    S.files = data.files;
+    uid = Math.max(0, ...data.files.map(f=>f.id)) + 1;
+    S.panes = data.panes && data.panes.length ? data.panes : [{fileId:null,raw:false}];
+    S.split = !!data.split;
+    S.mode = data.mode || 'view';
+    return true;
+  }catch(e){ return false; }
+}
+function clearSession(){
+  try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
+}
+
+marked.setOptions({breaks:false, mangle:false, headerIds:false});
+const renderer = new marked.Renderer();
+window.__codeStore = window.__codeStore || [];
+renderer.code = (code, lang) => {
+  const label = (lang||'texto').toLowerCase();
+  let inner;
+  if (label === 'diff') {
+    inner = `<div class="diffwrap">${renderDiffLines(code)}</div>`;
+  } else {
+    let html;
+    try { html = lang && hljs.getLanguage(lang) ? hljs.highlight(code,{language:lang}).value : esc(code); }
+    catch(e){ html = esc(code); }
+    inner = `<pre><code class="hljs">${html}</code></pre>`;
+  }
+  const store = renderer.__activeStore || window.__codeStore;
+  const idx = store.push(code) - 1;
+  return `<div class="codeblock"><div class="codeblock-head"><span>${esc(label)}</span>
+    <button class="copy-btn" data-code-idx="${idx}">Copiar</button></div>${inner}</div>`;
+};
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ================= LaTeX (KaTeX) ================= */
+// Protege $$...$$, \[...\], $...$ y \(...\) antes de que marked los toque,
+// y los restituye ya renderizados después del parse.
+/* ================= Literate mode (código -> documento narrativo) ================= */
+// Patrones portados de extract_comments.py: (regex, esBloque). Cada extensión
+// tiene sus propios delimitadores de comentario, ordenados de más a menos
+// específico (docstring/JSDoc antes que bloque genérico, antes que línea).
+const LITERATE_PATTERNS = {
+  py: [
+    {re:/"""([\s\S]*?)"""/g, block:true},
+    {re:/'''([\s\S]*?)'''/g, block:true},
+    {re:/^[ \t]*#(.*)$/gm, block:false},
+  ],
+  js: [
+    {re:/\/\*\*([\s\S]*?)\*\//g, block:true},
+    {re:/\/\*([\s\S]*?)\*\//g, block:true},
+    {re:/^[ \t]*\/\/(.*)$/gm, block:false},
+  ],
+};
+// C y C++ comparten exactamente la misma sintaxis de comentarios que JS
+// (/* bloque */ y // línea) -- reutilizamos el mismo set de patrones en
+// vez de duplicarlo.
+LITERATE_PATTERNS.c = LITERATE_PATTERNS.js;
+LITERATE_PATTERNS.cpp = LITERATE_PATTERNS.js;
+LITERATE_PATTERNS.h = LITERATE_PATTERNS.js;
+LITERATE_PATTERNS.hpp = LITERATE_PATTERNS.js;
+
+// Limpia el marcado interno de un comentario de bloque (asteriscos de JSDoc:
+// "* línea" -> "línea") y recorta espacios sobrantes.
+function cleanCommentText(text){
+  return text.replace(/\n[ \t]*\*[ \t]?/g, '\n').trim();
+}
+
+// Filtros de ruido, portados 1:1 del extractor: longitud mínima, separadores
+// visuales (----, ====, ────), y URLs sueltas que no aportan como prosa.
+function isNoiseComment(text, minLen){
+  if(text.length < minLen) return true;
+  if(/^[-=─━*#/\s]+$/.test(text)) return true;
+  if(/^https?:\/\/\S+$/.test(text)) return true;
+  return false;
+}
+
+// Recorre el archivo secuencialmente y produce tramos alternados
+// {type:'prose'|'code', text}, preservando el orden original (a diferencia
+// del extractor original, que agrupaba todos los comentarios aparte). El
+// código entre comentarios nunca se descarta, aunque esté vacío tras trim
+// se omite para no generar codeblocks fantasma.
+function parseLiterateBlocks(content, lang, minLen){
+  minLen = minLen ?? 15;
+  const patterns = LITERATE_PATTERNS[lang];
+  if(!patterns) return [{type:'code', text:content}];
+
+  // Recolectar todos los matches de todos los patrones con sus posiciones,
+  // igual que el extractor: cada patrón se corre por separado sobre el
+  // contenido completo y luego se ordenan por posición.
+  const matches=[];
+  patterns.forEach(({re,block})=>{
+    re.lastIndex=0;
+    let m;
+    while((m=re.exec(content))){
+      const raw=m[1];
+      const text=block ? cleanCommentText(raw) : raw.trim();
+      if(!isNoiseComment(text, minLen)){
+        matches.push({start:m.index, end:m.index+m[0].length, text});
+      }
+    }
+  });
+  matches.sort((a,b)=>a.start-b.start);
+
+  // Deduplicar solapamientos: si dos patrones matchean el mismo rango
+  // (p.ej. bloque genérico /* */ sobre un JSDoc /** */ ya capturado), nos
+  // quedamos con el primero por orden de especificidad de la lista.
+  const deduped=[];
+  let lastEnd=-1;
+  matches.forEach(m=>{
+    if(m.start>=lastEnd){ deduped.push(m); lastEnd=m.end; }
+  });
+
+  const blocks=[];
+  let cursor=0;
+  deduped.forEach(m=>{
+    const codeChunk=content.slice(cursor, m.start).trim();
+    if(codeChunk) blocks.push({type:'code', text:codeChunk});
+    blocks.push({type:'prose', text:m.text});
+    cursor=m.end;
+  });
+  const tail=content.slice(cursor).trim();
+  if(tail) blocks.push({type:'code', text:tail});
+
+  return blocks;
+}
+
+function renderMD(src, isolatedCodeStore){
+  const store=[];
+  const stash=(tex,display)=>{
+    const i=store.length;
+    store.push({tex,display});
+    return `\x00LATEX${i}\x00`;
+  };
+  // Orden importa: bloques (display) primero, luego inline.
+  let text=src
+    .replace(/\$\$([\s\S]+?)\$\$/g,(_,t)=>stash(t,true))
+    .replace(/\\\[([\s\S]+?)\\\]/g,(_,t)=>stash(t,true))
+    .replace(/\\\(([\s\S]+?)\\\)/g,(_,t)=>stash(t,false))
+    .replace(/(^|[^\\$])\$(?!\$)([^\n$]+?)\$(?!\$)/g,(m,pre,t)=>pre+stash(t,false));
+
+  renderer.__activeStore = isolatedCodeStore || null;
+  let html=marked.parse(text,{renderer});
+  renderer.__activeStore = null;
+
+  html=html.replace(/\x00LATEX(\d+)\x00/g,(_,i)=>{
+    const {tex,display}=store[+i];
+    try{
+      return katex.renderToString(tex,{throwOnError:true,displayMode:display});
+    }catch(e){
+      return `<span class="latex-error" title="${esc(e.message)}">${esc(display?'$$'+tex+'$$':'$'+tex+'$')}</span>`;
+    }
+  });
+  return html;
+}
+
+/* ================= Exportar como HTML standalone (▶) ================= */
+// Plantilla calcada del patrón visual "AMI.Go" (hero, secciones reveal,
+// cards/callouts, tablas, code blocks con copy + hljs, KaTeX).
+const STANDALONE_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap');
+:root{
+  --void:#020208;--deep:#06060f;--surface:#0a0a16;
+  --glass:rgba(255,255,255,.025);--border:rgba(255,255,255,.055);--border-hi:rgba(255,255,255,.11);
+  --ambar:#dbb876;--ambar-dim:rgba(219,184,118,.08);
+  --velvet:#c191d4;--velvet-dim:rgba(193,145,212,.08);
+  --eter:#7ec4c4;--eter-dim:rgba(126,196,196,.08);
+  --brujo:#e8734a;--brujo-dim:rgba(232,115,74,.08);
+  --soul:#c8b4ff;--soul-dim:rgba(200,180,255,.08);
+  --fire:#ffb347;--ice:#7eb8da;--safe:#8bc78b;--danger:#da7e7e;
+  --text:rgba(255,255,255,.8);--text-dim:rgba(255,255,255,.4);
+  --text-faint:rgba(255,255,255,.14);--text-ghost:rgba(255,255,255,.07);
+  --text-strong:#fff;
+  --hero-glow-1:rgba(219,184,118,.04);--hero-glow-2:rgba(193,145,212,.03);
+  --inline-code-bg:rgba(255,255,255,.06);
+  --table-row-border:rgba(255,255,255,.03);
+  --codeblock-bg:rgba(0,0,0,.45);
+  --num-literal:#f9c784;
+  --scheme:dark;
+  --serif:'Fraunces',Georgia,serif;--body:'Newsreader',Georgia,serif;--mono:'DM Mono','Fira Code',monospace;
+}
+html.light{
+  --void:#faf8f4;--deep:#f3efe6;--surface:#ffffff;
+  --glass:rgba(20,15,5,.025);--border:rgba(20,15,5,.09);--border-hi:rgba(20,15,5,.16);
+  --ambar:#a8763a;--ambar-dim:rgba(168,118,58,.09);
+  --velvet:#8a4f9e;--velvet-dim:rgba(138,79,158,.08);
+  --eter:#357c7c;--eter-dim:rgba(53,124,124,.08);
+  --brujo:#c25128;--brujo-dim:rgba(194,81,40,.08);
+  --soul:#6c4fc2;--soul-dim:rgba(108,79,194,.08);
+  --fire:#a8631c;--ice:#2f6f92;--safe:#3f8a52;--danger:#b5453e;
+  --text:rgba(20,15,5,.82);--text-dim:rgba(20,15,5,.52);
+  --text-faint:rgba(20,15,5,.32);--text-ghost:rgba(20,15,5,.1);
+  --text-strong:#141005;
+  --hero-glow-1:rgba(168,118,58,.07);--hero-glow-2:rgba(138,79,158,.05);
+  --inline-code-bg:rgba(20,15,5,.055);
+  --table-row-border:rgba(20,15,5,.05);
+  --codeblock-bg:rgba(20,15,5,.035);
+  --num-literal:#a8631c;
+  --scheme:light;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+img.emoji{height:1.15em;width:1.15em;margin:0 .04em;vertical-align:-.2em;display:inline-block}
+html{scroll-behavior:smooth;color-scheme:var(--scheme)}
+body{font-family:var(--body);background:var(--void);color:var(--text);min-height:100vh;overflow-x:hidden;line-height:1.75;font-size:16px;transition:background .35s ease,color .35s ease}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.7}
+html.light body::before{opacity:.25}
+.theme-toggle{position:fixed;top:1.2rem;right:1.2rem;z-index:20;display:flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;padding:.45rem .8rem;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;transition:border-color .2s,color .2s,background .35s ease;opacity:0;animation:fade-up 1s 1.6s forwards}
+.theme-toggle:hover{border-color:var(--ambar);color:var(--ambar)}
+.hero{position:relative;min-height:85vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;text-align:center;overflow:hidden}
+.hero-glow{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,var(--hero-glow-1) 0%,var(--hero-glow-2) 40%,transparent 70%);pointer-events:none;animation:breathe 10s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.6}}
+.eyebrow{font-family:var(--mono);font-size:.6rem;font-weight:300;letter-spacing:.4em;color:var(--ambar);text-transform:uppercase;margin-bottom:1.5rem;opacity:0;animation:fade-up 1s .2s forwards}
+h1{font-family:var(--serif);font-size:clamp(2.8rem,9vw,4.6rem);font-weight:200;font-style:italic;line-height:1.05;letter-spacing:-.02em;color:var(--text-strong);margin-bottom:.3em;opacity:0;animation:fade-up 1s .4s forwards;cursor:pointer;transition:opacity .3s;user-select:none}
+h1:hover{opacity:.85!important}
+h1:active{opacity:.65!important}
+.fs-hint{font-family:var(--mono);font-size:.52rem;letter-spacing:.2em;color:var(--text-faint);text-transform:uppercase;opacity:0;animation:fade-up 1s .9s forwards;margin-top:-.6rem}
+h1 span{font-style:normal;font-weight:700;background:linear-gradient(135deg,var(--ambar) 0%,var(--velvet) 50%,var(--eter) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.subtitle{font-family:var(--mono);font-size:.72rem;color:var(--text-dim);letter-spacing:.06em;max-width:340px;margin:1.5rem auto 0;opacity:0;animation:fade-up 1s .6s forwards;text-wrap:balance}
+.scroll-hint{margin-top:auto;padding-top:3rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;opacity:0;animation:fade-up 1s 1.4s forwards}
+.scroll-hint span{font-size:.55rem;letter-spacing:.25em;color:var(--text-faint);text-transform:uppercase;font-family:var(--mono)}
+.scroll-line{width:1px;height:36px;background:linear-gradient(to bottom,var(--ambar-dim),transparent);animation:scroll-pulse 2.5s ease-in-out infinite}
+@keyframes scroll-pulse{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes fade-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.doc{max-width:880px;margin:0 auto;padding:0 2rem 8rem;position:relative;z-index:1}
+.section{margin-top:4rem}
+.section-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.3em;color:var(--text-faint);text-transform:uppercase;margin-bottom:.7rem;display:flex;align-items:center;gap:1rem}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+h2{font-family:var(--serif);font-size:clamp(1.5rem,3.8vw,2.3rem);font-weight:200;font-style:italic;color:var(--text-strong);margin-bottom:1.4rem;line-height:1.2}
+h3{font-family:var(--mono);font-size:.75rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin:2.2rem 0 .7rem}
+h4{font-family:var(--body);font-size:1rem;font-weight:700;color:var(--text);margin:1.6rem 0 .5rem}
+p{font-size:.92rem;color:var(--text-dim);margin-bottom:1rem;max-width:660px}
+p strong,li strong{color:var(--text);font-weight:600}
+a{color:var(--ambar);text-decoration:none;border-bottom:1px solid var(--ambar-dim)}
+a:hover{border-color:var(--ambar)}
+ul,ol{margin:0 0 1.1rem 1.3rem;max-width:660px}
+li{font-size:.92rem;color:var(--text-dim);margin-bottom:.4rem;line-height:1.7}
+li::marker{color:var(--ambar)}
+img{max-width:100%;border-radius:8px;border:1px solid var(--border);margin:1rem 0}
+hr{border:none;border-top:1px solid var(--border);margin:2.5rem 0}
+code:not(pre code){font-family:var(--mono);font-size:.82em;background:var(--inline-code-bg);padding:.15em .4em;border-radius:4px;color:var(--fire)}
+.callout{border-left:2px solid var(--ambar);padding:1rem 1.25rem;background:var(--ambar-dim);border-radius:0 7px 7px 0;margin:1.5rem 0;font-size:.88rem;font-style:italic;color:var(--text);line-height:1.75;max-width:660px}
+.conv-table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-family:var(--mono);font-size:.72rem}
+.conv-table th{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--border);color:var(--text-faint);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:.58rem}
+.conv-table td{padding:.55rem .8rem;border-bottom:1px solid var(--table-row-border);color:var(--text-dim);vertical-align:top}
+.conv-table tr:hover td{background:var(--glass)}
+.codeblock{background:var(--codeblock-bg);border:1px solid var(--border);border-radius:8px;margin:1.2rem 0;overflow:hidden;max-width:100%}
+.codeblock-head{display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+.codeblock-head button{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.3rem .6rem;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:border-color .2s,color .2s}
+.codeblock-head button:hover{border-color:var(--ambar);color:var(--ambar)}
+.codeblock-head button.ok{border-color:var(--safe);color:var(--safe)}
+.codeblock pre{margin:0;padding:1.1rem 1.3rem;font-family:var(--mono);font-size:.78rem;line-height:1.8;overflow-x:auto;color:var(--text)}
+.codeblock code.hljs{background:transparent;padding:0}
+.hljs-keyword,.hljs-built_in{color:var(--soul)}
+.hljs-string,.hljs-attr{color:var(--fire)}
+.hljs-comment{color:var(--text-faint);font-style:italic}
+.hljs-title,.hljs-function,.hljs-title.function_{color:var(--ice)}
+.hljs-number,.hljs-literal{color:var(--num-literal)}
+.hljs-tag{color:var(--eter)}
+.hljs-name{color:var(--soul)}
+.hljs-symbol,.hljs-bullet{color:var(--velvet)}
+.katex{font-size:1.05em}
+.katex-display{margin:1.2rem 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+footer{border-top:1px solid var(--border);padding:3rem 2rem;text-align:center;font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;color:var(--text-faint);position:relative;z-index:1}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:none}
+@media(max-width:600px){.doc{padding:0 1.2rem 5rem}.theme-toggle{top:.8rem;right:.8rem;padding:.4rem .65rem;font-size:.56rem}}
+`;
+
+// Convierte el HTML ya generado por marked (con nuestros bloques .codeblock/.katex)
+// en el layout de secciones del template: parte por h2, o por <hr> como fallback si no hay h2,
+// mete h1 suelto al hero, blockquotes a .callout, y tablas a .conv-table.
+// Divide el título del hero en "sujeto/artículo" + "predicado" para pintar
+// la segunda pieza con el gradiente, replicando el patrón visual AMI.Go.
+// Un título de 1-2 palabras se deja simple (blanco, sin partir).
+function splitTitle(title){
+  const words = title.trim().split(/\s+/);
+  if(words.length<=2) return {a:title, b:null};
+
+  // 1) Separadores explícitos: guion/em-dash se CONSUME (no se imprime);
+  //    ':' ';' ',' se CONSERVAN al final de la primera pieza.
+  let m = title.match(/^(.*?)\s+[-—]\s+(.+)$/) || title.match(/^(.*)\n(.+)$/);
+  if(m && m[1].trim() && m[2].trim()){
+    return {a:m[1].trim(), b:m[2].trim()};
+  }
+  m = title.match(/^(.*?[:;,])\s+(.+)$/);
+  if(m && m[1].trim() && m[2].trim()){
+    return {a:m[1].trim(), b:m[2].trim()};
+  }
+
+  // 2) Patrón artículo/preposición + predicado: busca la última preposición
+  //    corta (de/del/de la/para/sobre/en) que deje al menos 2 palabras de
+  //    predicado después, y al menos 1 palabra antes.
+  const preps = ['de la','de los','de las','del','de','para','sobre','en','con'];
+  let bestIdx=-1, bestPrep=null;
+  for(const p of preps){
+    const re = new RegExp(`\\s${p}\\s`,'i');
+    const idx = title.search(re);
+    if(idx>-1){
+      const before = title.slice(0,idx).trim().split(/\s+/).length;
+      const afterStr = title.slice(idx).replace(re,'').trim();
+      const after = afterStr.split(/\s+/).length;
+      if(before>=1 && after>=2){ bestIdx=idx; bestPrep=p; break; }
+    }
+  }
+  if(bestIdx>-1){
+    const re = new RegExp(`^(.*?)\\s${bestPrep}\\s(.+)$`,'i');
+    const mm=title.match(re);
+    if(mm) return {a:(mm[1]+' '+bestPrep).trim(), b:mm[2].trim()};
+  }
+
+  // 3) Fallback por longitud: parte cerca del punto medio de caracteres,
+  //    ajustando al espacio más próximo para no cortar palabras.
+  const mid = title.length/2;
+  let cut=-1, best=Infinity;
+  let acc=0;
+  words.forEach((w,i)=>{
+    acc += w.length + (i>0?1:0);
+    const d=Math.abs(acc-mid);
+    if(d<best && i<words.length-1){ best=d; cut=acc; }
+  });
+  if(cut>0){
+    return {a:title.slice(0,cut).trim(), b:title.slice(cut).trim()};
+  }
+  return {a:title, b:null};
+}
+
+function buildStandaloneHTML(name, mdHtml, codeStore, initialDark){
+  const wrap=document.createElement('div');
+  wrap.innerHTML=mdHtml;
+
+  // título: primer heading del documento (cualquier nivel) hace de "hero title"
+  // implícito y nunca dispara sección — si es h1 se usa tal cual como título;
+  // si es de otro nivel (##, ###...) igual se retira del flujo de secciones
+  // pero el nombre de archivo sigue siendo el título visible del hero.
+  let heroTitle=name.replace(/\.(md|markdown|txt)$/i,'');
+  const firstHeading=wrap.querySelector('h1,h2,h3,h4,h5,h6');
+  if(firstHeading && firstHeading===wrap.firstElementChild){
+    if(firstHeading.tagName==='H1') heroTitle=firstHeading.textContent;
+    firstHeading.remove();
+  }
+
+  // blockquotes -> callout
+  wrap.querySelectorAll('blockquote').forEach(bq=>{
+    const div=document.createElement('div');
+    div.className='callout';
+    div.innerHTML=bq.innerHTML;
+    bq.replaceWith(div);
+  });
+  // tablas -> estilo conv-table
+  wrap.querySelectorAll('table').forEach(t=>t.classList.add('conv-table'));
+
+  const nodes=[...wrap.childNodes].filter(n=>!(n.nodeType===3 && !n.textContent.trim()));
+  let sections=[]; let current=null; let secIdx=0;
+
+  // Nivel-ancla: el heading de menor profundidad presente en el resto del doc
+  // (h1 ya se removió arriba). Solo ESE nivel abre sección; niveles más
+  // profundos quedan como contenido normal dentro de la sección vigente.
+  const HLEVELS=['H2','H3','H4','H5','H6'];
+  let anchorTag=null;
+  for(const tag of HLEVELS){
+    if(nodes.some(n=>n.nodeType===1&&n.tagName===tag)){ anchorTag=tag; break; }
+  }
+
+  const openSection=(loose)=>{
+    const sec=document.createElement('section');
+    sec.className='section reveal';
+    if(loose){ sec.dataset.loose='1'; }
+    else{
+      secIdx++;
+      const label=document.createElement('p');
+      label.className='section-label';
+      label.textContent=`§ ${String(secIdx).padStart(2,'0')}`;
+      sec.appendChild(label);
+    }
+    sections.push(sec);
+    return sec;
+  };
+
+  nodes.forEach(node=>{
+    const isAnchorHeading = anchorTag && node.nodeType===1 && node.tagName===anchorTag;
+    const isCodeBlock = node.nodeType===1 && node.classList && node.classList.contains('codeblock');
+    const isDelimiter = isAnchorHeading || isCodeBlock;
+
+    if(isDelimiter){
+      current=openSection(false);
+      current.appendChild(node);
+    }else if(current){
+      current.appendChild(node);
+    }else{
+      // contenido antes del primer separador: sección suelta sin label,
+      // reutilizando la última si ya es de tipo "loose" (solo puede pasar
+      // al inicio, antes de que current exista por primera vez)
+      const last=sections[sections.length-1];
+      current = (last && last.dataset.loose==='1') ? last : openSection(true);
+      current.appendChild(node);
+    }
+  });
+
+  // Fallback: si nunca se abrió una sección "real" (con label §, es decir
+  // disparada por un heading-ancla o un bloque de código), todo el
+  // contenido quedó en una sola sección "suelta" -- se marca visible de
+  // entrada porque no hay múltiples secciones que el scroll deba revelar.
+  const hasRealSection = sections.some(s=>s.dataset.loose!=='1');
+  if(!hasRealSection){
+    sections.forEach(s=>s.classList.add('visible'));
+  }
+
+  const bodyHtml=sections.map(s=>s.outerHTML).join('\n');
+  const heroSub='Documento exportado desde Cotejo · Markdown → HTML';
+  const {a:titleA, b:titleB} = splitTitle(heroTitle);
+  const heroH1 = titleB
+    ? `${esc(titleA)}<br><span>${esc(titleB)}</span>`
+    : esc(titleA);
+
+  const lightClass = initialDark===false ? ' class="light"' : '';
+
+  return `<!DOCTYPE html>
+<html lang="es"${lightClass}>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(heroTitle)}</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+${'<'+'script src="https://unpkg.com/@twemoji/api@17.0.3/dist/twemoji.min.js">'+'</'+'script>'}
+<style>${STANDALONE_CSS}</style>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" title="Cambiar tema claro/oscuro">
+  <span id="themeToggleIcon">${initialDark===false?'☀':'☾'}</span> <span id="themeToggleLabel">${initialDark===false?'Claro':'Oscuro'}</span>
+</button>
+<section class="hero">
+  <div class="hero-glow"></div>
+  <p class="eyebrow">Cotejo · Documento</p>
+  <h1 id="heroTitle" title="Pantalla completa">${heroH1}</h1>
+  <p class="fs-hint">⤢ Pantalla completa</p>
+  <p class="subtitle">${esc(heroSub)}</p>
+  <div class="scroll-hint"><span>Descender</span><div class="scroll-line"></div></div>
+</section>
+<div class="doc">
+${bodyHtml}
+</div>
+<footer><strong>${esc(heroTitle)}</strong> — generado con Cotejo</footer>
+${'<'+'script>'}
+const __codeStore = ${JSON.stringify(codeStore||[])};
+const THEME_KEY='cotejo-doc-theme';
+(function(){
+  const saved=localStorage.getItem(THEME_KEY);
+  const isLight = saved ? saved==='light' : document.documentElement.classList.contains('light');
+  document.documentElement.classList.toggle('light', isLight);
+  const icon=document.getElementById('themeToggleIcon'), label=document.getElementById('themeToggleLabel');
+  if(icon){ icon.textContent = isLight ? '☀' : '☾'; label.textContent = isLight ? 'Claro' : 'Oscuro'; }
+})();
+document.getElementById('themeToggle')?.addEventListener('click',()=>{
+  const isLight=document.documentElement.classList.toggle('light');
+  try{ localStorage.setItem(THEME_KEY, isLight?'light':'dark'); }catch(e){}
+  const icon=document.getElementById('themeToggleIcon'), label=document.getElementById('themeToggleLabel');
+  icon.textContent = isLight ? '☀' : '☾'; label.textContent = isLight ? 'Claro' : 'Oscuro';
+});
+document.querySelectorAll('.codeblock-head button[data-code-idx]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const code=__codeStore[+b.getAttribute('data-code-idx')]??'';
+    navigator.clipboard.writeText(code).then(()=>{
+      const old=b.textContent; b.textContent='Copiado'; b.classList.add('ok');
+      setTimeout(()=>{b.textContent=old;b.classList.remove('ok');},1200);
+    });
+  });
+});
+const reveals=document.querySelectorAll('.reveal');
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach((e,i)=>{
+    if(e.isIntersecting){ setTimeout(()=>e.target.classList.add('visible'), i*80); observer.unobserve(e.target); }
+  });
+},{threshold:.06});
+reveals.forEach(r=>observer.observe(r));
+const heroTitleEl=document.getElementById('heroTitle');
+if(heroTitleEl){
+  heroTitleEl.addEventListener('click',()=>{
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen?.().catch(()=>{});
+    }else{
+      document.exitFullscreen?.().catch(()=>{});
+    }
+  });
+}
+if(typeof twemoji!=='undefined') twemoji.parse(document.body, {folder:'svg', ext:'.svg', className:'emoji'});
+<\/script>
+</body>
+</html>`;
+}
+
+
+// Convierte los bloques de parseLiterateBlocks directamente a HTML,
+// reusando el mismo renderer de codeblock que usa marked (para heredar
+// highlight.js + botón Copiar + el mismo codeStore), sin pasar por un
+// roundtrip a texto markdown (evita romperse si el código contiene ```).
+function renderLiterateHTML(blocks, lang, codeStore){
+  return blocks.map(b=>{
+    if(b.type==='code'){
+      return renderer.code(b.text, lang);
+    }
+    // prose: párrafos separados por línea en blanco, escapados (no es
+    // markdown real, es texto de comentario plano) pero conservando saltos.
+    return b.text.split(/\n{2,}/).map(p=>`<p>${esc(p).replace(/\n/g,'<br>')}</p>`).join('\n');
+  }).join('\n');
+}
+
+function openLiterateStandalone(file){
+  if(!file) return;
+  const lang=fileExt(file.name); // 'py' | 'js'
+  const blocks=parseLiterateBlocks(file.content, lang, 15);
+  const codeStore=[];
+  renderer.__activeStore = codeStore;
+  const innerHtml = renderLiterateHTML(blocks, CODE_EXT[lang], codeStore);
+  renderer.__activeStore = null;
+  const html=buildStandaloneHTML(file.name, innerHtml, codeStore, S.dark);
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
+/* ================= Preview real de HTML (iframe sandboxeado) ================= */
+// El sandbox del iframe es la barrera de seguridad real, no decorativa:
+// - allow-scripts: permite que el JS del archivo corra (criterio pedido:
+//   "ejecutar sin miedo" para archivos propios).
+// - NUNCA allow-same-origin junto con allow-scripts: si se combinan, el
+//   script podría correr con el mismo origen y acceder a cosas fuera del
+//   iframe en ciertos navegadores. Sin allow-same-origin, el iframe corre
+//   en un origen opaco/único — el JS se ejecuta pero queda aislado, sin
+//   acceso a cookies, localStorage o el DOM de Cotejo.
+// - Candado cerrado: sin allow-scripts en absoluto. El navegador bloquea
+//   la ejecución de <script>, onclick, etc. a nivel motor, no es un
+//   filtro de texto que se pueda evadir.
+function buildHtmlPreviewDoc(file, jsEnabled){
+  const sandboxAttrs = jsEnabled ? 'allow-scripts allow-forms' : 'allow-forms';
+  const srcdoc = file.content.replace(/"/g,'&quot;');
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(file.name)} — Preview</title>
+${'<'+'script src="https://unpkg.com/@twemoji/api@17.0.3/dist/twemoji.min.js">'+'</'+'script>'}
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:#0a0a12;font-family:-apple-system,'DM Mono',monospace}
+img.emoji{height:1.15em;width:1.15em;margin:0 .04em;vertical-align:-.2em;display:inline-block}
+.preview-bar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(10,10,18,.92);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.1);font-size:12.5px;color:rgba(255,255,255,.75)}
+.preview-bar .name{font-weight:600;color:#fff}
+.preview-bar .badge{margin-left:auto;font-size:11px;padding:3px 9px;border-radius:20px;letter-spacing:.03em}
+.preview-bar .badge.on{background:rgba(139,199,139,.15);color:#8bc78b;border:1px solid rgba(139,199,139,.3)}
+.preview-bar .badge.off{background:rgba(218,126,126,.15);color:#da7e7e;border:1px solid rgba(218,126,126,.3)}
+iframe{position:fixed;top:37px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 37px);border:none;background:#fff}
+</style>
+</head>
+<body>
+<div class="preview-bar" id="previewBar">
+  <span>◈ Cotejo · Preview</span>
+  <span class="name">${esc(file.name)}</span>
+  <span class="badge ${jsEnabled?'on':'off'}">${jsEnabled?'🔓 JS habilitado':'🔒 JS bloqueado'}</span>
+</div>
+<iframe sandbox="${sandboxAttrs}" srcdoc="${srcdoc}"></iframe>
+${'<'+'script>'}
+if(typeof twemoji!=='undefined') twemoji.parse(document.getElementById('previewBar'), {folder:'svg', ext:'.svg', className:'emoji'});
+<\/script>
+</body>
+</html>`;
+}
+
+/* ================= Historial de versiones ================= */
+// Carpeta única .history/ (no una por archivo). Cada snapshot se guarda
+// como {nombreSanitizado}__{timestampISO}.{ext} + su .meta.json hermano.
+// Híbrido: si el navegador soporta File System Access API se escribe
+// directo a la carpeta elegida; si no (Firefox/Safari), cada snapshot se
+// descarga suelto y el usuario los mueve a mano.
+const supportsFileSystemAccess = typeof window.showDirectoryPicker === 'function';
+
+// Sanitiza el nombre de archivo para que sea válido como prefijo de
+// filename en cualquier sistema de archivos (sin espacios, sin caracteres
+// reservados de Windows/Android, conserva extensión aparte).
+function sanitizeForFilename(name){
+  const base = name.replace(/\.[^.]+$/, '');
+  return base.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/_+/g,'_').replace(/^_|_$/g,'') || 'archivo';
+}
+
+function timestampSlug(){
+  // ISO sin caracteres inválidos para filename: 2026-08-12T14-30-05
+  return new Date().toISOString().replace(/:/g,'-').replace(/\.\d+Z$/,'');
+}
+
+async function connectHistoryFolder(){
+  if(!supportsFileSystemAccess){
+    toast('Tu navegador no soporta guardado directo — los snapshots se descargarán como archivos sueltos');
+    S.historyDirHandle = 'download-mode';
+    return;
+  }
+  try{
+    const handle = await window.showDirectoryPicker({id:'cotejo-history', mode:'readwrite'});
+    S.historyDirHandle = handle;
+    toast(`Carpeta de historial conectada: ${handle.name}`);
+  }catch(e){
+    // Usuario canceló el picker — no es un error real, no molestar con toast.
+  }
+}
+
+// Escribe un archivo dentro del handle de carpeta ya concedido.
+async function writeToHistoryDir(filename, content){
+  const fileHandle = await S.historyDirHandle.getFileHandle(filename, {create:true});
+  const writable = await fileHandle.createWritable();
+  await writable.write(content);
+  await writable.close();
+}
+
+// Descarga un snapshot suelto vía el link normal de descarga (fallback).
+function downloadSnapshotFile(filename, content, mime){
+  const blob = new Blob([content], {type:mime||'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+}
+
+// Guarda un snapshot del archivo: escribe {name}__{ts}.{ext} y su
+// {name}__{ts}.meta.json hermano, por la ruta que corresponda según cómo
+// esté conectado el historial. trigger: 'save' (automático al editar) o
+// 'manual' (botón de snapshot explícito).
+/* ---------- Listado y lectura del historial ---------- */
+// S.historyIndex: cuando se usa webkitdirectory (modo solo-lectura, sin
+// handle real de FS Access API), guardamos aquí un mapa filename -> File,
+// leído una sola vez al seleccionar la carpeta.
+S.historyIndex = null;
+
+function historyAvailable(){
+  return (S.historyDirHandle && S.historyDirHandle!=='download-mode') || S.historyIndex!==null;
+}
+
+// Lista todas las versiones guardadas de un archivo específico, ordenadas
+// de más reciente a más antigua. Cada entrada: {filename, meta, getContent}
+// donde getContent() es async y retorna el texto del snapshot bajo demanda
+// (no cargamos todo en memoria de una, solo cuando se pide ver/restaurar).
+async function listHistoryVersions(originalName){
+  const base = sanitizeForFilename(originalName);
+  const prefix = base + '__';
+  const entries = [];
+
+  if(S.historyDirHandle && S.historyDirHandle!=='download-mode'){
+    for await (const [name, handle] of S.historyDirHandle.entries()){
+      if(handle.kind==='file' && name.startsWith(prefix) && name.endsWith('.meta.json')){
+        try{
+          const metaFile = await handle.getFile();
+          const meta = JSON.parse(await metaFile.text());
+          const snapshotName = name.replace(/\.meta\.json$/,'.'+fileExt(originalName));
+          entries.push({
+            filename: snapshotName,
+            meta,
+            getContent: async()=>{
+              const fh = await S.historyDirHandle.getFileHandle(snapshotName);
+              const f = await fh.getFile();
+              return await f.text();
+            }
+          });
+        }catch(e){ /* meta corrupto o snapshot faltante: se omite esa entrada, no rompe el resto */ }
+      }
+    }
+  }else if(S.historyIndex){
+    for(const [name, file] of S.historyIndex.entries()){
+      if(name.startsWith(prefix) && name.endsWith('.meta.json')){
+        try{
+          const meta = JSON.parse(await file.text());
+          const snapshotName = name.replace(/\.meta\.json$/,'.'+fileExt(originalName));
+          const snapshotFile = S.historyIndex.get(snapshotName);
+          if(!snapshotFile) continue;
+          entries.push({
+            filename: snapshotName,
+            meta,
+            getContent: async()=> await snapshotFile.text()
+          });
+        }catch(e){ /* igual, se omite silenciosamente */ }
+      }
+    }
+  }
+
+  entries.sort((a,b)=> new Date(b.meta.timestamp) - new Date(a.meta.timestamp));
+  return entries;
+}
+
+// Carga una carpeta .history en modo solo-lectura vía <input webkitdirectory>,
+// para navegadores sin File System Access API. No permite escribir — solo
+// ver/restaurar lo que ya existe en disco.
+function loadHistoryIndexFromFileList(fileList){
+  const index = new Map();
+  [...fileList].forEach(f=>{
+    // webkitRelativePath viene como "carpeta_elegida/.history/archivo.ext"
+    // o "carpeta_elegida/archivo.ext" si el usuario entró directo a .history;
+    // nos quedamos solo con el nombre de archivo, ignorando la ruta.
+    const name = f.name;
+    index.set(name, f);
+  });
+  S.historyIndex = index;
+  toast(`Historial cargado en modo lectura: ${index.size} archivos`);
+}
+
+/* ================= Edición en caliente (escribir al archivo real) ================= */
+// A diferencia del historial (una sola carpeta .history centralizada), aquí
+// cada archivo puede tener su propia carpeta de origen. S.workDirs guarda
+// los handles ya autorizados en esta sesión para no volver a pedir permiso
+// si el usuario ya dio acceso a una carpeta que resulta contener otro
+// archivo que también quiere editar en caliente.
+
+// Busca si alguna carpeta ya conocida contiene un archivo con ese nombre.
+// Retorna el handle de carpeta si lo encuentra, null si ninguna lo tiene.
+async function findFileInKnownDirs(filename){
+  for(const dirHandle of S.workDirs){
+    try{
+      await dirHandle.getFileHandle(filename, {create:false});
+      return dirHandle;
+    }catch(e){ /* no está en esta carpeta, seguir buscando */ }
+  }
+  return null;
+}
+
+// Verifica si un archivo existe dentro de un handle de carpeta específico.
+async function fileExistsInDir(dirHandle, filename){
+  try{
+    await dirHandle.getFileHandle(filename, {create:false});
+    return true;
+  }catch(e){ return false; }
+}
+
+// Flujo completo al activar edición: busca carpeta conocida, si no hay
+// pide permiso, verifica existencia y confirma creación si hace falta.
+// Retorna el dirHandle a asociar al archivo, o null si el usuario canceló
+// o prefirió seguir solo en memoria (sin escritura real).
+async function ensureWorkDirForFile(file){
+  if(file._workDirHandle) return file._workDirHandle; // ya conectado antes
+
+  if(!supportsFileSystemAccess){
+    toast('Tu navegador no soporta guardado directo — usa Descargar en su lugar');
+    return null;
+  }
+
+  const known = await findFileInKnownDirs(file.name);
+  if(known){
+    toast('Ya está esa carpeta en el espacio de trabajo');
+    return known;
+  }
+
+  let dirHandle;
+  try{
+    dirHandle = await window.showDirectoryPicker({id:'cotejo-workdir', mode:'readwrite'});
+  }catch(e){ return null; } // usuario canceló el picker
+
+  if(!S.workDirs.includes(dirHandle)) S.workDirs.push(dirHandle);
+
+  const exists = await fileExistsInDir(dirHandle, file.name);
+  if(!exists){
+    const create = confirm(`«${file.name}» no existe en la carpeta seleccionada. ¿Guardar como archivo nuevo ahí?`);
+    if(!create) return null;
+  }
+  return dirHandle;
+}
+
+// Escribe el contenido actual del archivo a su carpeta de trabajo real.
+async function writeFileToWorkDir(file){
+  if(!file._workDirHandle) return false;
+  try{
+    const fh = await file._workDirHandle.getFileHandle(file.name, {create:true});
+    const writable = await fh.createWritable();
+    await writable.write(file.content);
+    await writable.close();
+    return true;
+  }catch(e){
+    toast('Error al escribir en el archivo real: '+e.message);
+    return false;
+  }
+}
+
+// Descarga el archivo tal cual está en memoria, sin pedir ningún permiso
+// de File System API — la alternativa siempre disponible al guardado
+// directo en disco.
+function downloadFileContent(file){
+  const blob = new Blob([file.content], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+}
+
+/* ---------- Modal de elección: Guardar en disco / Descargar ---------- */
+S.saveChoiceFileId = null;
+function openSaveChoiceModal(file){
+  S.saveChoiceFileId = file.id;
+  $('#saveChoiceModal').hidden = false;
+}
+function closeSaveChoiceModal(){
+  $('#saveChoiceModal').hidden = true;
+  S.saveChoiceFileId = null;
+}
+async function handleSaveChoiceDisk(){
+  const f = fileById(S.saveChoiceFileId);
+  closeSaveChoiceModal();
+  if(!f) return;
+  const dirHandle = await ensureWorkDirForFile(f);
+  if(dirHandle){
+    f._workDirHandle = dirHandle;
+    const ok = await writeFileToWorkDir(f);
+    if(ok) f._dirty = false;
+    render();
+    toast(ok ? `💾 Guardado en disco: ${f.name}` : `No se pudo escribir en disco`);
+  }
+  // si el usuario canceló el picker o el archivo, se queda dirty — no se
+  // pierde nada, el próximo guardado volverá a preguntar.
+}
+function handleSaveChoiceDownload(){
+  const f = fileById(S.saveChoiceFileId);
+  closeSaveChoiceModal();
+  if(!f) return;
+  downloadFileContent(f);
+  f._dirty = false;
+  render();
+  toast(`⬇️ Descargado: ${f.name}`);
+}
+
+async function saveHistorySnapshot(file, trigger){
+  if(!S.historyDirHandle){
+    toast('Conecta una carpeta de historial primero (botón en el toolbar)');
+    return false;
+  }
+  const ext = fileExt(file.name) || 'txt';
+  const base = sanitizeForFilename(file.name);
+  const ts = timestampSlug();
+  const snapshotName = `${base}__${ts}.${ext}`;
+  const metaName = `${base}__${ts}.meta.json`;
+  const meta = {
+    original_name: file.name,
+    timestamp: new Date().toISOString(),
+    trigger: trigger,
+    size_bytes: new Blob([file.content]).size,
+    lines: (file.content.match(/\n/g)||[]).length+1,
+  };
+  try{
+    if(S.historyDirHandle==='download-mode'){
+      downloadSnapshotFile(snapshotName, file.content, 'text/plain');
+      downloadSnapshotFile(metaName, JSON.stringify(meta,null,2), 'application/json');
+    }else{
+      await writeToHistoryDir(snapshotName, file.content);
+      await writeToHistoryDir(metaName, JSON.stringify(meta,null,2));
+    }
+    return true;
+  }catch(e){
+    toast('Error al guardar snapshot: '+e.message);
+    return false;
+  }
+}
+
+/* ---------- Modal de historial: listar / ver diff / restaurar ---------- */
+S.historyModalFileId = null; // qué archivo está mostrando el modal actualmente
+
+function fmtBytes(n){
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  return (n/1024/1024).toFixed(1)+' MB';
+}
+function fmtTimestamp(iso){
+  const d=new Date(iso);
+  return d.toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+const TRIGGER_LABEL = {save:'Guardado (editor)', manual:'Snapshot manual'};
+
+async function openHistoryModal(file){
+  if(!file) return;
+  S.historyModalFileId = file.id;
+  const modal=$('#historyModal');
+  modal.hidden=false;
+  $('#historyModalTitle').textContent = `Historial · ${file.name}`;
+  $('#historyModalBody').innerHTML = `<div class="empty" style="height:140px"><span>Cargando versiones…</span></div>`;
+
+  const versions = await listHistoryVersions(file.name);
+  if(!versions.length){
+    $('#historyModalBody').innerHTML = `<div class="empty" style="height:140px">
+      <span><b>Sin versiones guardadas</b><br>Usa 📸 o guarda en el editor para crear la primera.</span></div>`;
+    return;
+  }
+  $('#historyModalBody').innerHTML = versions.map((v,idx)=>`
+    <div class="history-item">
+      <div class="history-item-main">
+        <span class="history-date">${fmtTimestamp(v.meta.timestamp)}</span>
+        <span class="history-trigger">${esc(TRIGGER_LABEL[v.meta.trigger]||v.meta.trigger)}</span>
+        <span class="history-size">${fmtBytes(v.meta.size_bytes)} · ${v.meta.lines} líneas</span>
+      </div>
+      <div class="history-item-actions">
+        <button class="mini" data-history-diff="${idx}">Ver diff</button>
+        <button class="mini" data-history-restore="${idx}">Restaurar</button>
+      </div>
+    </div>`).join('');
+  // Guardamos las versiones en una variable de módulo para que los botones
+  // (delegados globalmente) puedan acceder a getContent() por índice sin
+  // tener que re-serializar funciones en el HTML.
+  S.historyModalVersions = versions;
+}
+
+function closeHistoryModal(){
+  $('#historyModal').hidden=true;
+  S.historyModalFileId = null;
+  S.historyModalVersions = null;
+}
+
+// Muestra el diff de una versión del historial contra el contenido actual
+// del archivo, reutilizando el motor de Comparar existente: inyecta el
+// snapshot como archivo temporal en S.files, lo asigna al panel 0, deja el
+// archivo real en el panel 1, y activa modo compare. Guarda el estado
+// anterior para poder restaurarlo al cerrar el diff.
+S.historyPrevState = null;
+async function viewHistoryDiff(idx){
+  const file = fileById(S.historyModalFileId);
+  const version = S.historyModalVersions?.[idx];
+  if(!file || !version) return;
+
+  S.historyPrevState = {
+    panes: JSON.parse(JSON.stringify(S.panes)),
+    split: S.split,
+    mode: S.mode,
+  };
+
+  const content = await version.getContent();
+  const tempId = 'history-temp';
+  S.files = S.files.filter(f=>f.id!==tempId);
+  S.files.push({id:tempId, name:`${file.name} (${fmtTimestamp(version.meta.timestamp)})`, content, _historyTemp:true});
+
+  S.panes = [{fileId:tempId, raw:false}, {fileId:file.id, raw:false}];
+  S.split = true;
+  S.mode = 'compare';
+  closeHistoryModal();
+  render();
+}
+
+function exitHistoryDiff(){
+  if(!S.historyPrevState) return;
+  S.files = S.files.filter(f=>!f._historyTemp);
+  S.panes = S.historyPrevState.panes;
+  S.split = S.historyPrevState.split;
+  S.mode = S.historyPrevState.mode;
+  S.historyPrevState = null;
+  render();
+}
+
+async function restoreHistoryVersion(idx){
+  const file = fileById(S.historyModalFileId);
+  const version = S.historyModalVersions?.[idx];
+  if(!file || !version) return;
+  if(!confirm(`¿Restaurar «${file.name}» a la versión del ${fmtTimestamp(version.meta.timestamp)}? Esto reemplaza el contenido actual (se guarda un snapshot del estado actual antes de restaurar).`)) return;
+
+  // Snapshot de seguridad del estado actual antes de sobrescribir, para
+  // que restaurar nunca sea una operación destructiva sin retorno.
+  if(historyAvailable() && S.historyDirHandle && S.historyDirHandle!=='download-mode'){
+    await saveHistorySnapshot(file, 'manual');
+  }
+  file.content = await version.getContent();
+  closeHistoryModal();
+  render();
+  toast(`Restaurado: ${file.name}`);
+}
+
+function openHtmlPreview(file){
+  if(!file) return;
+  const doc = buildHtmlPreviewDoc(file, S.htmlJsEnabled);
+  const blob=new Blob([doc],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
+function openStandalone(file){
+  if(!file) return;
+  const codeStore=[];
+  let innerHtml;
+  if(isDataFile(file.name)){
+    const ext=fileExt(file.name);
+    innerHtml = ext==='csv' ? renderCSVTable(file.content) : renderJSONTree(file.content);
+  }else{
+    innerHtml = renderMD(file.content, codeStore);
+  }
+  const html=buildStandaloneHTML(file.name, innerHtml, codeStore, S.dark);
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
+/* ================= CSV ================= */
+// Parser CSV manual: respeta comillas dobles, comas y saltos de línea escapados.
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  const src=text.replace(/\r\n/g,'\n');
+  for(let i=0;i<src.length;i++){
+    const c=src[i];
+    if(inQuotes){
+      if(c==='"'){
+        if(src[i+1]==='"'){field+='"';i++;}
+        else inQuotes=false;
+      }else field+=c;
+    }else{
+      if(c==='"') inQuotes=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>!(r.length===1&&r[0]===''));
+}
+
+function renderCSVTable(text){
+  const rows=parseCSV(text);
+  if(!rows.length) return '<div class="empty"><div><b>CSV vacío</b></div></div>';
+  const [head,...body]=rows;
+  const cols=head.length;
+  const pad=r=>{const c=r.slice(0,cols);while(c.length<cols)c.push('');return c;};
+  const thead=`<tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`;
+  const tbody=body.map(r=>`<tr>${pad(r).map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+  return `<div class="md"><table class="conv-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+/* ================= JSON ================= */
+// Árbol plegable con colores por tipo.
+function jsonNode(key, val, depth){
+  const isObj=val!==null&&typeof val==='object';
+  const keyHtml=key!==null?`<span class="jk">${esc(key)}</span><span class="jp">: </span>`:'';
+  if(!isObj){
+    let cls='jv-null', display='null';
+    if(typeof val==='string'){cls='jv-str';display=`"${esc(val)}"`;}
+    else if(typeof val==='number'){cls='jv-num';display=String(val);}
+    else if(typeof val==='boolean'){cls='jv-bool';display=String(val);}
+    return `<div class="jline" style="padding-left:${depth*1.2}em">${keyHtml}<span class="${cls}">${display}</span></div>`;
+  }
+  const isArr=Array.isArray(val);
+  const entries=isArr?val.map((v,i)=>[i,v]):Object.entries(val);
+  const bracket=isArr?['[',']']:['{','}'];
+  if(!entries.length){
+    return `<div class="jline" style="padding-left:${depth*1.2}em">${keyHtml}<span class="jp">${bracket[0]}${bracket[1]}</span></div>`;
+  }
+  const id='j'+Math.random().toString(36).slice(2,9);
+  const inner=entries.map(([k,v])=>jsonNode(isArr?null:k,v,depth+1)).join('');
+  const count=isArr?`${entries.length} ítem${entries.length===1?'':'s'}`:`${entries.length} clave${entries.length===1?'':'s'}`;
+  return `<div class="jline jparent" style="padding-left:${depth*1.2}em">
+    <button class="jtoggle" data-jtoggle="${id}">▾</button>${keyHtml}<span class="jp">${bracket[0]}</span> <span class="jcount">${count}</span>
+    <div class="jchildren" id="${id}">${inner}<div class="jline" style="padding-left:${depth*1.2}em"><span class="jp">${bracket[1]}</span></div></div>
+  </div>`;
+}
+
+function renderJSONTree(text){
+  let data;
+  try{ data=JSON.parse(text); }
+  catch(e){
+    let hl; try{ hl=hljs.highlight(text,{language:'json'}).value; }catch(_){ hl=esc(text); }
+    return `<pre class="code-standalone json-error"><code class="hljs">${hl}</code></pre>
+      <div class="latex-error" style="margin-top:8px;display:inline-block">JSON inválido: ${esc(e.message)}</div>`;
+  }
+  return `<div class="jtree">${jsonNode(null,data,0)}</div>`;
+}
+
+
+/* Pinta un bloque diff estilo git (sin números — para fences dentro del MD) */
+function renderDiffLines(code){
+  return code.split('\n').map(l=>{
+    let cls='';
+    if(/^@@/.test(l)) cls='hunk';
+    else if(/^(\+\+\+|---)/.test(l)) cls='meta';
+    else if(/^\+/.test(l)) cls='add';
+    else if(/^-/.test(l)) cls='del';
+    return `<div class="dl ${cls}"><span class="tx">${esc(l)||' '}</span></div>`;
+  }).join('');
+}
+
+/* ================= Archivos ================= */
+const CODE_EXT = {py:'python', js:'javascript', html:'html', htm:'html', yaml:'yaml', yml:'yaml', c:'c', h:'c', cpp:'cpp', cc:'cpp', hpp:'cpp', glsl:'glsl', vert:'glsl', frag:'glsl'};
+const DATA_EXT = {csv:'csv', json:'json'};
+const fileExt = name => (name.match(/\.([a-z0-9]+)$/i)||[,''])[1].toLowerCase();
+const isHtmlFile = name => ['html','htm'].includes(fileExt(name));
+const isCodeFile = name => CODE_EXT.hasOwnProperty(fileExt(name));
+const isDataFile = name => DATA_EXT.hasOwnProperty(fileExt(name));
+// .py/.js -> modo literate (comentarios como prosa). .html/.htm queda fuera:
+// para HTML el ▶ es "preview real" (pendiente aparte), no literate.
+const isLiterateFile = name => LITERATE_PATTERNS.hasOwnProperty(fileExt(name));
+
+function addFiles(fileList, replaceId=null){
+  const arr=[...fileList].filter(f=>/\.(md|markdown|txt|py|js|html|htm|csv|json|yaml|yml|c|h|cpp|cc|hpp|glsl|vert|frag)$/i.test(f.name)||f.type.startsWith('text'));
+  if(!arr.length){toast('Formato no compatible — revisa la lista de extensiones soportadas');return;}
+  arr.forEach((f,idx)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const content=e.target.result;
+      if(replaceId!==null && idx===0){
+        const old=S.files.find(x=>x.id===replaceId);
+        if(old){old.name=f.name;old.content=content;toast(`Reemplazado: ${f.name}`);}
+      }else{
+        const dup=S.files.find(x=>x.name===f.name);
+        if(dup && confirm(`«${f.name}» ya está abierto. ¿Reemplazar su contenido?`)){dup.content=content;}
+        else{
+          const id=++uid;
+          S.files.push({id,name:f.name,content});
+          // Autoasignar a un panel vacío
+          const free=S.panes.find(p=>p.fileId===null);
+          if(free) free.fileId=id;
+          else if(S.split && S.files.length===2) S.panes[1].fileId=id;
+        }
+      }
+      render();
+    };
+    reader.readAsText(f);
+  });
+}
+
+/* ---------- Crear archivo nuevo ---------- */
+function openNewFileModal(){
+  $('#newFileModal').hidden = false;
+  $('#newFileName').value = '';
+  $('#newFileExt').value = 'md';
+  $('#newFileName').focus();
+}
+function closeNewFileModal(){
+  $('#newFileModal').hidden = true;
+}
+function createNewFile(){
+  const rawName = $('#newFileName').value.trim();
+  const ext = $('#newFileExt').value;
+  if(!rawName){ toast('Ponle un nombre al archivo'); return; }
+  // Sanitiza igual que el resto de la app (mismo criterio que los
+  // snapshots de historial), y le quita la extensión si el usuario ya la
+  // escribió a mano para no duplicarla con la del dropdown.
+  const base = sanitizeForFilename(rawName.replace(/\.[a-z0-9]+$/i,''));
+  const name = `${base}.${ext}`;
+
+  const dup = S.files.find(f=>f.name===name);
+  if(dup){ toast(`«${name}» ya está abierto`); return; }
+
+  const id = ++uid;
+  S.files.push({id, name, content:'', _dirty:false});
+
+  // Autoasignar a un panel libre, igual que addFiles.
+  const free = S.panes.find(p=>p.fileId===null);
+  const targetPane = free || S.panes[0];
+  targetPane.fileId = id;
+  // .md/.txt solo son editables en modo raw — forzar raw para que el
+  // editor aparezca de inmediato, tal como se pidió ("crear y editar").
+  targetPane.raw = true;
+  targetPane.editing = true;
+
+  closeNewFileModal();
+  closeSettingsMenu();
+  render();
+  const paneIdx = S.panes.indexOf(targetPane);
+  const editorEl = document.querySelector(`[data-editor="${paneIdx}"]`);
+  if(editorEl) editorEl.focus();
+  toast(`Creado: ${name}`);
+}
+
+function closeFile(id){
+  const f = fileById(id);
+  if(f && f._dirty){
+    const proceed = confirm(`«${f.name}» tiene cambios sin guardar en disco/descarga. ¿Cerrarlo de todas formas?`);
+    if(!proceed) return;
+  }
+  S.files=S.files.filter(f=>f.id!==id);
+  S.panes.forEach(p=>{if(p.fileId===id)p.fileId=S.files[0]?.id??null;});
+  if(S.files.length<2 && S.mode!=='view'){S.mode='view';}
+  render();
+}
+
+const fileById=id=>S.files.find(f=>f.id===id);
+const cmpPair=()=>{
+  const a=fileById(S.panes[0]?.fileId), b=fileById(S.panes[1]?.fileId);
+  return (a&&b&&a.id!==b.id)?[a,b]:null;
+};
+
+/* ================= Render ================= */
+function render(){
+  renderFilebar();
+  const canCmp=S.split&&!!cmpPair();
+  $('#btnCompare').disabled=!canCmp;
+  $('#btnMerge').disabled=!canCmp;
+  $('#btnSplit').classList.toggle('active',S.split);
+  $('#btnCompare').classList.toggle('active',S.mode==='compare');
+  $('#btnMerge').classList.toggle('active',S.mode==='merge');
+  const main=$('#main');
+  main.className=S.split&&S.mode==='view'?'split':'';
+  if(S.mode==='compare') renderCompare(main);
+  else if(S.mode==='merge') renderMerge(main);
+  else renderPanes(main);
+  saveSession();
+  applyTwemoji();
+}
+
+// Reemplaza emojis por <img> de Twemoji (SVG consistente en toda
+// plataforma) en toda la app, EXCEPTO dentro de .editor-code — ahí el
+// emoji debe quedarse como texto plano real, o el contenteditable dejaría
+// de poder editarse/borrarse con el teclado normal.
+function applyTwemoji(){
+  if(typeof twemoji === 'undefined') return;
+  const opts = {folder:'svg', ext:'.svg', className:'emoji'};
+  // twemoji.parse no soporta excluir un selector directamente: recorremos
+  // los hijos de <body> y, si alguno contiene un .editor-code, parseamos
+  // sus propios hijos uno por uno saltándonos ese contenedor puntual.
+  [...document.body.children].forEach(el=>{
+    const editors = el.querySelectorAll('.editor-code');
+    if(!editors.length){
+      twemoji.parse(el, opts);
+      return;
+    }
+    [...el.querySelectorAll('*')].forEach(node=>{
+      if(node.classList.contains('editor-code')) return;
+      if(node.closest('.editor-code')) return;
+      // Parsear solo nodos "hoja de estructura" (sin hijos elemento) para
+      // no reprocesar el mismo texto varias veces al bajar por el árbol.
+      if(![...node.children].some(c=>c.nodeType===1)){
+        twemoji.parse(node, opts);
+      }
+    });
+  });
+}
+
+function renderFilebar(){
+  const bar=$('#filebar');
+  if(!S.files.length){bar.innerHTML='<span class="hint">Arrastra archivos aquí, si lo sueltas sobre una ficha lo reemplaza.</span>';return;}
+  bar.innerHTML=S.files.map((f,i)=>{
+    const w=f.content.split(/\s+/).filter(Boolean).length, l=f.content.split('\n').length;
+    const diskIcon = f._workDirHandle ? `<span class="file-disk-icon" title="Conectado a disco real">💾</span>` : '';
+    const dirtyDot = f._dirty ? `<span class="file-dirty-dot" title="Cambios sin guardar en disco/descarga"></span>` : '';
+    return `<span class="chip" data-id="${f.id}" title="${l} líneas · ${w} palabras — suelta un .md encima para reemplazar">
+      <span class="dot" style="background:${COLORS[i%COLORS.length]}"></span>${esc(f.name)}${diskIcon}${dirtyDot}
+      <button class="x" data-close="${f.id}" title="Cerrar archivo" aria-label="Cerrar ${esc(f.name)}">×</button></span>`;
+  }).join('');
+}
+
+/* ---------- Buscador in-panel ---------- */
+// Estado de búsqueda por índice de panel: {term, matches:[el,...], activeIdx}
+const searchState = {};
+
+function clearHighlights(body){
+  body.querySelectorAll('mark.hit').forEach(m=>{
+    const parent=m.parentNode;
+    parent.replaceChild(document.createTextNode(m.textContent), m);
+    parent.normalize();
+  });
+}
+
+function highlightMatches(body, term){
+  clearHighlights(body);
+  if(!term) return [];
+  const lower=term.toLowerCase();
+  const matches=[];
+  // Recorremos todos los text nodes visibles dentro del body (evita tocar
+  // atributos, scripts, o el propio input de búsqueda que no vive aquí).
+  const walker=document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!n.nodeValue || !n.nodeValue.toLowerCase().includes(lower)) return NodeFilter.FILTER_SKIP;
+      if(n.parentElement && (n.parentElement.tagName==='SCRIPT'||n.parentElement.tagName==='STYLE')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const targets=[];
+  let node;
+  while((node=walker.nextNode())) targets.push(node);
+
+  targets.forEach(textNode=>{
+    const text=textNode.nodeValue;
+    const lowerText=text.toLowerCase();
+    let idx=0, frag=document.createDocumentFragment(), last=0;
+    while((idx=lowerText.indexOf(lower,last))!==-1){
+      if(idx>last) frag.appendChild(document.createTextNode(text.slice(last,idx)));
+      const mark=document.createElement('mark');
+      mark.className='hit';
+      mark.textContent=text.slice(idx,idx+term.length);
+      frag.appendChild(mark);
+      matches.push(mark);
+      last=idx+term.length;
+    }
+    if(last<text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+  return matches;
+}
+
+function updateSearchCount(i){
+  const st=searchState[i];
+  const countEl=document.querySelector(`[data-searchcount="${i}"]`);
+  if(!countEl) return;
+  countEl.textContent = st && st.matches.length ? `${st.activeIdx+1}/${st.matches.length}` : '0/0';
+}
+
+function goToMatch(i, delta){
+  const st=searchState[i];
+  if(!st || !st.matches.length) return;
+  const prevMark=st.matches[st.activeIdx];
+  if(prevMark) prevMark.classList.remove('active');
+  st.activeIdx = ((st.activeIdx + delta) % st.matches.length + st.matches.length) % st.matches.length;
+  const mark=st.matches[st.activeIdx];
+  mark.classList.add('active');
+  mark.scrollIntoView({block:'center', behavior:'smooth'});
+  updateSearchCount(i);
+}
+
+function runSearch(i, term){
+  const pane=document.querySelectorAll('.pane')[i];
+  if(!pane) return;
+  const body=pane.querySelector('.pane-body');
+  const matches=highlightMatches(body, term.trim());
+  searchState[i]={term, matches, activeIdx:0};
+  if(matches.length) matches[0].classList.add('active');
+  updateSearchCount(i);
+  if(matches.length) matches[0].scrollIntoView({block:'center', behavior:'smooth'});
+}
+
+function openSearchBar(i){
+  const bar=document.querySelector(`[data-searchbar="${i}"]`);
+  if(!bar) return;
+  bar.hidden=false;
+  const input=bar.querySelector(`[data-searchinput="${i}"]`);
+  input.focus();
+  input.select();
+}
+
+function closeSearchBar(i){
+  const bar=document.querySelector(`[data-searchbar="${i}"]`);
+  if(!bar) return;
+  bar.hidden=true;
+  const pane=document.querySelectorAll('.pane')[i];
+  if(pane) clearHighlights(pane.querySelector('.pane-body'));
+  delete searchState[i];
+  const input=bar.querySelector(`[data-searchinput="${i}"]`);
+  if(input) input.value='';
+}
+
+/* ---------- Editor in-panel ---------- */
+const EDITOR_LANG_EXT = {...CODE_EXT, json:'json', md:'markdown', markdown:'markdown', txt:null, csv:null};
+function buildEditorHTML(f, paneIdx){
+  const ext=fileExt(f.name);
+  const lang=EDITOR_LANG_EXT.hasOwnProperty(ext) ? EDITOR_LANG_EXT[ext] : null;
+  let hl;
+  if(lang && hljs.getLanguage(lang)){
+    try{ hl=hljs.highlight(f.content,{language:lang}).value; }catch(e){ hl=esc(f.content); }
+  }else{
+    hl=esc(f.content);
+  }
+  const lineCount=(f.content.match(/\n/g)||[]).length+1;
+  const lines=Array.from({length:lineCount},(_,i)=>i+1).join('\n');
+  return `<div class="editor-wrap">
+    <div class="editor-lines" data-editorlines="${paneIdx}">${lines}</div>
+    <div class="editor-code" data-editor="${paneIdx}" contenteditable="true" spellcheck="false"><code class="hljs">${hl}</code></div>
+  </div>`;
+}
+
+// Extrae texto plano del contenteditable, preservando saltos de línea reales
+// (el navegador puede insertar <div>/<br> al escribir dentro de un
+// contenteditable; innerText respeta el layout visual mejor que textContent).
+function editorPlainText(el){
+  return el.innerText !== undefined ? el.innerText.replace(/\r\n/g,'\n') : el.textContent;
+}
+
+// Cuenta cuántas líneas VISUALES ocupa cada línea lógica del texto, midiendo
+// con Range.getClientRects() cómo el navegador realmente está pintando el
+// contenteditable — es el único método confiable, ya que el wrap depende
+// de la fuente, el ancho del panel, emojis, etc. y no se puede calcular a
+// mano de forma exacta. Devuelve un array con un entero por línea lógica.
+function measureVisualLineCounts(codeEl){
+  const walker=document.createTreeWalker(codeEl, NodeFilter.SHOW_TEXT);
+  const textNodes=[];
+  let n; while((n=walker.nextNode())) textNodes.push(n);
+  if(!textNodes.length) return [1];
+
+  // Reconstituimos las líneas lógicas concatenando el texto de todos los
+  // nodos, para saber en qué nodo/offset empieza y termina cada una.
+  let fullText=''; const nodeOffsets=[]; // {node, start, end} en fullText
+  textNodes.forEach(tn=>{
+    const start=fullText.length;
+    fullText+=tn.nodeValue;
+    nodeOffsets.push({node:tn, start, end:fullText.length});
+  });
+
+  const lines=fullText.split('\n');
+  const counts=[];
+  let cursor=0;
+  const range=document.createRange();
+  lines.forEach(line=>{
+    const lineStart=cursor, lineEnd=cursor+line.length;
+    if(line.length===0){
+      counts.push(1); // línea lógica vacía real: siempre 1 línea visual
+    }else{
+      const startInfo=nodeOffsets.find(o=>lineStart>=o.start && lineStart<o.end) || nodeOffsets[nodeOffsets.length-1];
+      const endInfo=nodeOffsets.find(o=>lineEnd>o.start && lineEnd<=o.end) || nodeOffsets[nodeOffsets.length-1];
+      try{
+        range.setStart(startInfo.node, lineStart-startInfo.start);
+        range.setEnd(endInfo.node, lineEnd-endInfo.start);
+        const rects=range.getClientRects();
+        // getClientRects devuelve un rect por fragmento visual contiguo;
+        // agrupamos por posición vertical (top) redondeada para contar
+        // renglones reales, evitando falsos positivos por sub-pixeles.
+        const tops=new Set([...rects].map(r=>Math.round(r.top)));
+        counts.push(Math.max(1, tops.size));
+      }catch(e){
+        counts.push(1); // fallback seguro si el Range no pudo construirse
+      }
+    }
+    cursor=lineEnd+1; // +1 por el '\n' consumido en el split
+  });
+  return counts;
+}
+
+function buildLineNumberColumn(counts){
+  const parts=[];
+  counts.forEach((visualLines,idx)=>{
+    parts.push(String(idx+1));
+    for(let i=1;i<visualLines;i++) parts.push('');
+  });
+  return parts.join('\n');
+}
+
+function updateEditorLineCount(paneIdx){
+  const codeEl=document.querySelector(`[data-editor="${paneIdx}"]`);
+  const linesEl=document.querySelector(`[data-editorlines="${paneIdx}"]`);
+  if(!codeEl||!linesEl) return;
+  const counts=measureVisualLineCounts(codeEl);
+  linesEl.textContent=buildLineNumberColumn(counts);
+}
+
+function renderPanes(main){
+  Object.keys(searchState).forEach(k=>delete searchState[k]);
+  main.innerHTML='';
+  const n=S.split?2:1;
+  while(S.panes.length<n)S.panes.push({fileId:null,raw:false});
+  S.panes.slice(0,n).forEach((p,i)=>{
+    const pane=document.createElement('div');pane.className='pane';
+    const f=fileById(p.fileId);
+    const isCode=f&&isCodeFile(f.name);
+    const isData=f&&isDataFile(f.name);
+    const isPlain=isCode||isData;
+    // editable en: código siempre, MD/txt solo en modo raw, CSV/JSON siempre
+    // (para CSV/JSON se edita el texto crudo, no la tabla/árbol renderizado)
+    const isEditable = f && (isCode || isData || (!isPlain && p.raw));
+    const opts=S.files.map(x=>`<option value="${x.id}" ${x.id===p.fileId?'selected':''}>${esc(x.name)}</option>`).join('');
+    pane.innerHTML=`
+      <div class="pane-head">
+        <select data-pane="${i}" aria-label="Archivo del panel ${i+1}" ${p.editing?'disabled':''}>
+          ${S.files.length?opts:'<option>— sin archivos —</option>'}
+        </select>
+        ${f?`<button class="mini" data-search="${i}" title="Buscar en el documento">🔍</button>`:''}
+        ${f&&S.historyDirHandle?`<button class="mini" data-snapshot="${i}" title="Guardar snapshot manual en el historial">📸</button>`:''}
+        ${f&&historyAvailable()?`<button class="mini" data-history="${i}" title="Ver historial de versiones">🕐</button>`:f?`<button class="mini" disabled title="Historial no disponible en modo descarga">🕐</button>`:''}
+        ${isEditable&&!p.editing?`<button class="mini" data-edit="${i}" title="Editar archivo">✏️</button>`:''}
+        ${isPlain?'':`<button class="mini" data-raw="${i}" title="Alternar código fuente" ${p.editing?'disabled':''}>${p.raw?'MD':'&lt;/&gt;'}</button>`}
+        ${f&&(!isCode||isLiterateFile(f.name)||isHtmlFile(f.name))?`<button class="mini" data-play="${i}" title="${isHtmlFile(f.name)?'Abrir preview real (ejecuta el archivo)':isCode?'Abrir como documento (modo literate)':'Abrir como HTML en pestaña nueva'}" ${p.editing?'disabled':''}>▶</button>`:''}
+        ${n===2&&i===0?'<button class="mini" data-swap title="Intercambiar paneles">⇄</button>':''}
+      </div>
+      ${f&&S.historyDirHandle==='download-mode'&&!S.historyIndex?`<div class="history-hint"><button class="linklike" data-history-load>carga .history</button> para habilitar el historial</div>`:''}
+      ${isEditable&&p.editing?`<div class="edit-bar">
+        <span class="hint">Editando ${esc(f.name)} — los cambios se guardan solo al confirmar</span>
+        <button class="mini save" data-editsave="${i}" title="Guardar">✓</button>
+        <button class="mini cancel" data-editcancel="${i}" title="Cancelar">✕</button>
+      </div>`:''}
+      <div class="search-bar" data-searchbar="${i}" hidden>
+        <input type="text" data-searchinput="${i}" placeholder="Buscar…" autocomplete="off">
+        <span class="search-count" data-searchcount="${i}">0/0</span>
+        <button class="mini" data-searchprev="${i}" title="Anterior (↑)">▲</button>
+        <button class="mini" data-searchnext="${i}" title="Siguiente (↓)">▼</button>
+        <button class="mini" data-searchclose="${i}" title="Cerrar búsqueda">✕</button>
+      </div>
+      <div class="pane-body ${p.raw&&!isPlain?'raw':''}"></div>`;
+    const body=pane.querySelector('.pane-body');
+    if(!f){
+      body.innerHTML=`<div class="empty">
+        <svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M9 14h6M9 17h4"/></svg>
+        <div><b>Arrastra aquí para abrir</b><br><span class="empty-formats">.md .txt · .py .js .html · .c .cpp .glsl · .yaml .csv .json</span></div></div>`;
+    }else if(p.editing && isEditable){
+      body.innerHTML=buildEditorHTML(f, i);
+      requestAnimationFrame(()=>updateEditorLineCount(i));
+    }else if(isCode){
+      const lang=CODE_EXT[fileExt(f.name)];
+      let hl;
+      try{ hl=hljs.highlight(f.content,{language:lang}).value; }catch(e){ hl=esc(f.content); }
+      body.innerHTML=`<pre class="code-standalone"><code class="hljs">${hl}</code></pre>`;
+    }else if(isData){
+      const ext=fileExt(f.name);
+      body.innerHTML= ext==='csv' ? renderCSVTable(f.content) : renderJSONTree(f.content);
+    }else if(p.raw){
+      body.textContent=f.content;
+    }else{
+      body.innerHTML=`<div class="md">${renderMD(f.content)}</div>`;
+    }
+    main.appendChild(pane);
+  });
+}
+
+/* ---------- Comparar ---------- */
+function renderCompare(main){
+  const pair=cmpPair(); if(!pair){S.mode='view';return render();}
+  const [a,b]=pair;
+  const identical=a.content===b.content;
+  let html,stats='';
+  if(identical){
+    html=`<div class="empty" style="height:auto;padding:60px 20px">
+      <span class="badge same" style="font-size:15px;padding:8px 20px">✓ Archivos idénticos</span>
+      <div style="color:var(--ink2)">«${esc(a.name)}» y «${esc(b.name)}» tienen exactamente el mismo contenido.</div></div>`;
+  }else{
+    const parts=Diff.diffLines(a.content,b.content);
+    let add=0,del=0,la=1,lb=1,rows='';
+    parts.forEach(p=>{
+      const lines=p.value.replace(/\n$/,'').split('\n');
+      lines.forEach(t=>{
+        if(p.added){rows+=dl('add','', lb++, '+'+t);add++;}
+        else if(p.removed){rows+=dl('del',la++,'','-'+t);del++;}
+        else{rows+=dl('',la++,lb++,' '+t);}
+      });
+    });
+    stats=`<span class="stats"><span class="plus">+${add}</span> <span class="minus">−${del}</span></span>`;
+    html=`<div class="diffwrap">${rows}</div>`;
+  }
+  main.innerHTML=`<div id="compare">
+    <div class="cmp-head">
+      ${S.historyPrevState?`<button class="mini" data-history-exit title="Volver a la vista anterior">←</button>`:''}
+      <span class="badge ${identical?'same':'diff'}">${identical?'Idénticos':'Diferentes'}</span>
+      <span class="names"><span style="color:var(--del-ink)">${esc(a.name)}</span> → <span style="color:var(--add-ink)">${esc(b.name)}</span></span>
+      ${stats}
+    </div>
+    <div class="cmp-body">${html}</div></div>`;
+  function dl(cls,l1,l2,tx){return `<div class="dl ${cls}"><span class="ln">${l1}</span><span class="ln">${l2}</span><span class="tx">${esc(tx)||' '}</span></div>`;}
+}
+
+/* ---------- Merge ---------- */
+function buildHunks(a,b){
+  const parts=Diff.diffLines(a,b), hunks=[]; let i=0;
+  while(i<parts.length){
+    const p=parts[i];
+    if(!p.added&&!p.removed){hunks.push({type:'same',text:p.value});i++;}
+    else{
+      let A='',B='';
+      if(p.removed){A=p.value; if(parts[i+1]?.added){B=parts[i+1].value;i+=2;}else i++;}
+      else{B=p.value;i++;}
+      hunks.push({type:'change',a:A,b:B,pick:'b'});
+    }
+  }
+  return hunks;
+}
+
+function renderMerge(main){
+  const pair=cmpPair(); if(!pair){S.mode='view';return render();}
+  const [a,b]=pair;
+  if(a.content===b.content){
+    main.innerHTML=`<div id="merge"><div class="empty"><span class="badge same" style="font-size:15px;padding:8px 20px">✓ Idénticos — nada que fusionar</span></div></div>`;return;
+  }
+  if(!S.hunks.length||S.hunks._sig!==a.id+'-'+b.id){
+    S.hunks=buildHunks(a.content,b.content);S.hunks._sig=a.id+'-'+b.id;
+  }
+  let n=0;
+  const body=S.hunks.map((h,idx)=>{
+    if(h.type==='same'){
+      const t=h.text.replace(/\n$/,'');
+      const short=t.split('\n').length>6?t.split('\n').slice(0,3).join('\n')+'\n···\n'+t.split('\n').slice(-2).join('\n'):t;
+      return `<div class="ctx">${esc(short)}</div>`;
+    }
+    n++;
+    return `<div class="hunk" data-h="${idx}">
+      <div class="hunk-head"><b>Conflicto ${n}</b>
+        <span class="pick">
+          <button data-pick="a" class="${h.pick==='a'?'sel-a':''}">A · ${esc(a.name)}</button>
+          <button data-pick="b" class="${h.pick==='b'?'sel-b':''}">B · ${esc(b.name)}</button>
+          <button data-pick="ab" class="${h.pick==='ab'?'sel-ab':''}">Ambos</button>
+        </span></div>
+      <div class="sides">
+        <div class="side a"><span class="tag">A — ${esc(a.name)}</span>${esc(h.a.replace(/\n$/,''))||'<i>(vacío — líneas añadidas en B)</i>'}</div>
+        <div class="side b"><span class="tag">B — ${esc(b.name)}</span>${esc(h.b.replace(/\n$/,''))||'<i>(vacío — líneas eliminadas en B)</i>'}</div>
+      </div></div>`;
+  }).join('');
+  main.innerHTML=`<div id="merge">
+    <div class="cmp-head"><span class="badge diff">Merge</span>
+      <span class="names">${esc(a.name)} + ${esc(b.name)}</span>
+      <span class="stats">${n} conflicto${n!==1?'s':''} · por defecto se toma B</span></div>
+    <div class="merge-body">${body}</div>
+    <div class="merge-actions">
+      <span class="stats">Elige A, B o Ambos en cada conflicto</span>
+      <button data-allA>Todo A</button><button data-allB>Todo B</button>
+      <button class="primary" data-export><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg> Descargar merge</button>
+      <button data-copyMerge>Copiar merge</button>
+      <button data-openMerge>Abrir como archivo</button>
+    </div></div>`;
+}
+
+function mergedText(){
+  return S.hunks.map(h=>{
+    if(h.type==='same')return h.text;
+    if(h.pick==='a')return h.a;
+    if(h.pick==='ab')return h.a+h.b;
+    return h.b;
+  }).join('');
+}
+
+/* ================= Eventos ================= */
+$('#btnOpen').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+$('#historyDirInput').onchange=e=>{
+  if(e.target.files.length) loadHistoryIndexFromFileList(e.target.files);
+  e.target.value='';
+  render();
+};
+
+$('#btnSplit').onclick=()=>{
+  S.split=!S.split;
+  if(!S.split&&S.mode!=='view')S.mode='view';
+  if(S.split&&S.files.length>1&&S.panes[1]&&(S.panes[1].fileId===null||S.panes[1].fileId===S.panes[0].fileId)){
+    const other=S.files.find(f=>f.id!==S.panes[0].fileId);
+    if(other){S.panes[1]=S.panes[1]||{raw:false};S.panes[1].fileId=other.id;}
+  }
+  render();
+};
+$('#btnCompare').onclick=()=>{S.mode=S.mode==='compare'?'view':'compare';render();};
+$('#btnMerge').onclick=()=>{S.mode=S.mode==='merge'?'view':'merge';render();};
+/* ---------- Menú de ajustes (engrane) ---------- */
+function updateSettingsMenuUI(){
+  $('#mThemeToggle').classList.toggle('on', S.dark);
+  $('#mFSToggle').classList.toggle('on', !!document.fullscreenElement);
+  $('#mHtmlLockToggle').classList.toggle('on', S.htmlJsEnabled);
+  const lbl=$('#mHistoryConnectLbl');
+  if(!S.historyDirHandle){
+    lbl.textContent = supportsFileSystemAccess ? 'Conectar carpeta…' : 'Conectar (modo descarga)…';
+  }else if(S.historyDirHandle==='download-mode'){
+    lbl.textContent = 'Modo descarga activo';
+  }else{
+    lbl.textContent = `Conectado: ${S.historyDirHandle.name}`;
+  }
+}
+function openSettingsMenu(){ $('#settingsMenu').hidden=false; updateSettingsMenuUI(); }
+function closeSettingsMenu(){ $('#settingsMenu').hidden=true; }
+$('#btnSettings').onclick=e=>{
+  e.stopPropagation();
+  const menu=$('#settingsMenu');
+  menu.hidden ? openSettingsMenu() : closeSettingsMenu();
+};
+document.addEventListener('click',e=>{
+  const menu=$('#settingsMenu');
+  if(!menu.hidden && !menu.contains(e.target) && e.target!==$('#btnSettings') && !$('#btnSettings').contains(e.target)){
+    closeSettingsMenu();
+  }
+});
+$('#mTheme').onclick=()=>{ setTheme(!S.dark); updateSettingsMenuUI(); };
+$('#mFS').onclick=()=>{
+  if(document.fullscreenElement)document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>toast('Pantalla completa no disponible'));
+  setTimeout(updateSettingsMenuUI,100);
+};
+$('#mHtmlLock').onclick=()=>{
+  S.htmlJsEnabled=!S.htmlJsEnabled;
+  updateSettingsMenuUI();
+  toast(S.htmlJsEnabled ? '🔓 JS habilitado en preview de HTML' : '🔒 JS bloqueado en preview de HTML');
+};
+$('#mHistoryConnect').onclick=async()=>{ await connectHistoryFolder(); updateSettingsMenuUI(); };
+$('#mClearAll').onclick=()=>{
+  if(!S.files.length){ toast('No hay archivos abiertos'); closeSettingsMenu(); return; }
+  const dirtyFiles = S.files.filter(f=>f._dirty);
+  if(dirtyFiles.length){
+    const names = dirtyFiles.map(f=>f.name).join(', ');
+    const proceed = confirm(`Tienes ${dirtyFiles.length} archivo${dirtyFiles.length===1?'':'s'} sin guardar (${names}). Si cierras todo, esos cambios se perderán. ¿Continuar de todas formas?`);
+    if(!proceed){ closeSettingsMenu(); return; }
+  }
+  S.files=[]; S.panes=[{fileId:null,raw:false}]; S.split=false; S.mode='view'; S.hunks=[];
+  clearSession();
+  render();
+  toast('Sesión limpiada');
+  closeSettingsMenu();
+};
+$('#saveChoiceDisk').onclick=()=>handleSaveChoiceDisk();
+$('#saveChoiceDownload').onclick=()=>handleSaveChoiceDownload();
+$('#saveChoiceCancel').onclick=()=>closeSaveChoiceModal();
+$('#mNewFile').onclick=()=>{ closeSettingsMenu(); openNewFileModal(); };
+$('#newFileClose').onclick=()=>closeNewFileModal();
+$('#newFileCreate').onclick=()=>createNewFile();
+$('#newFileName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); createNewFile(); } });
+
+function setTheme(dark){
+  S.dark=dark;
+  document.documentElement.classList.toggle('dark',dark);
+  $('#hljs-light').disabled=dark; $('#hljs-dark').disabled=!dark;
+}
+setTheme(S.dark);
+
+/* Delegación global */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,select');if(!t)return;
+  if(t.dataset.close){closeFile(+t.dataset.close);return;}
+  if(t.dataset.raw!==undefined){S.panes[+t.dataset.raw].raw=!S.panes[+t.dataset.raw].raw;render();return;}
+  if(t.dataset.play!==undefined){
+    const p=S.panes[+t.dataset.play];const f=fileById(p?.fileId);
+    if(!f){ toast('Sin archivo en este panel'); return; }
+    if(isHtmlFile(f.name)) openHtmlPreview(f);
+    else if(isLiterateFile(f.name)) openLiterateStandalone(f);
+    else openStandalone(f);
+    return;
+  }
+  if(t.dataset.jtoggle!==undefined){
+    const kids=document.getElementById(t.dataset.jtoggle);
+    if(kids){
+      kids.classList.toggle('collapsed');
+      t.textContent=kids.classList.contains('collapsed')?'▸':'▾';
+    }
+    return;
+  }
+  if(t.dataset.swap!==undefined){[S.panes[0],S.panes[1]]=[S.panes[1],S.panes[0]];S.hunks=[];render();return;}
+  if(t.dataset.search!==undefined){openSearchBar(+t.dataset.search);return;}
+  if(t.dataset.snapshot!==undefined){
+    const p=S.panes[+t.dataset.snapshot];const f=fileById(p?.fileId);
+    if(f){ saveHistorySnapshot(f, 'manual').then(ok=>{ if(ok) toast(`📸 Snapshot guardado: ${f.name}`); }); }
+    return;
+  }
+  if(t.dataset.history!==undefined){
+    const p=S.panes[+t.dataset.history];const f=fileById(p?.fileId);
+    if(f) openHistoryModal(f);
+    return;
+  }
+  if(t.dataset.historyLoad!==undefined){
+    $('#historyDirInput').click();
+    return;
+  }
+  if(t.id==='historyModalClose'){ closeHistoryModal(); return; }
+  if(t.dataset.historyDiff!==undefined){ viewHistoryDiff(+t.dataset.historyDiff); return; }
+  if(t.dataset.historyRestore!==undefined){ restoreHistoryVersion(+t.dataset.historyRestore); return; }
+  if(t.dataset.historyExit!==undefined){ exitHistoryDiff(); return; }
+  if(t.dataset.searchclose!==undefined){closeSearchBar(+t.dataset.searchclose);return;}
+  if(t.dataset.searchnext!==undefined){goToMatch(+t.dataset.searchnext,1);return;}
+  if(t.dataset.searchprev!==undefined){goToMatch(+t.dataset.searchprev,-1);return;}
+  if(t.dataset.edit!==undefined){
+    const i=+t.dataset.edit;
+    S.panes[i].editing=true;
+    render();
+    const codeEl=document.querySelector(`[data-editor="${i}"]`);
+    if(codeEl){ codeEl.focus(); }
+    return;
+  }
+  if(t.dataset.editcancel!==undefined){
+    const i=+t.dataset.editcancel;
+    S.panes[i].editing=false;
+    render();
+    return;
+  }
+  if(t.dataset.editsave!==undefined){
+    const i=+t.dataset.editsave;
+    const p=S.panes[i];
+    const f=fileById(p?.fileId);
+    const codeEl=document.querySelector(`[data-editor="${i}"]`);
+    if(f && codeEl){
+      f.content = editorPlainText(codeEl);
+      f._dirty = true;
+      p.editing=false;
+      render();
+      if(S.historyDirHandle) saveHistorySnapshot(f, 'save');
+      openSaveChoiceModal(f);
+    }
+    return;
+  }
+  if(t.classList.contains('copy-btn')){
+    const code=window.__codeStore[+t.dataset.codeIdx]??'';
+    navigator.clipboard.writeText(code).then(()=>{
+      t.textContent='✓ Copiado';t.classList.add('ok');
+      setTimeout(()=>{t.textContent='Copiar';t.classList.remove('ok');},1600);
+    });return;
+  }
+  if(t.dataset.pick){
+    const idx=+t.closest('.hunk').dataset.h;
+    S.hunks[idx].pick=t.dataset.pick;render();return;
+  }
+  if(t.dataset.allA!==undefined){S.hunks.forEach(h=>{if(h.type==='change')h.pick='a';});render();return;}
+  if(t.dataset.allB!==undefined){S.hunks.forEach(h=>{if(h.type==='change')h.pick='b';});render();return;}
+  if(t.dataset.export!==undefined){
+    const pair=cmpPair();
+    const blob=new Blob([mergedText()],{type:'text/markdown'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='merge_'+(pair?pair[1].name:'resultado.md');a.click();
+    URL.revokeObjectURL(a.href);toast('Merge descargado');return;
+  }
+  if(t.dataset.copyMerge!==undefined){navigator.clipboard.writeText(mergedText()).then(()=>toast('Merge copiado al portapapeles'));return;}
+  if(t.dataset.openMerge!==undefined){
+    const pair=cmpPair();const id=++uid;
+    S.files.push({id,name:'merge_'+(pair?pair[1].name:'resultado.md'),content:mergedText()});
+    S.mode='view';S.panes[0].fileId=id;render();toast('Merge abierto como archivo nuevo');return;
+  }
+});
+document.addEventListener('change',e=>{
+  if(e.target.dataset.pane!==undefined){
+    S.panes[+e.target.dataset.pane].fileId=+e.target.value;S.hunks=[];render();
+  }
+});
+
+/* Drag & drop — global y sobre fichas (reemplazo) */
+let dragDepth=0;
+addEventListener('dragenter',e=>{e.preventDefault();if(++dragDepth===1)$('#dropzone').classList.add('on');});
+addEventListener('dragleave',e=>{e.preventDefault();if(--dragDepth===0)$('#dropzone').classList.remove('on');});
+addEventListener('dragover',e=>{
+  e.preventDefault();
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('droptarget',c.contains(e.target)||c===e.target.closest('.chip')));
+});
+addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;$('#dropzone').classList.remove('on');
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('droptarget'));
+  const chip=e.target.closest('.chip');
+  addFiles(e.dataTransfer.files, chip?+chip.dataset.id:null);
+});
+
+/* Atajos */
+addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='o'){e.preventDefault();$('#fileInput').click();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='d'){e.preventDefault();$('#btnSplit').click();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){
+    const firstBtn=document.querySelector('[data-search]');
+    if(firstBtn){ e.preventDefault(); openSearchBar(+firstBtn.dataset.search); }
+  }
+});
+
+/* Buscador in-panel: búsqueda en vivo + navegación con teclado */
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.searchinput!==undefined){ runSearch(+t.dataset.searchinput, t.value); return; }
+  if(t.dataset.editor!==undefined){ updateEditorLineCount(+t.dataset.editor); return; }
+});
+let resizeDebounce=null;
+addEventListener('resize',()=>{
+  clearTimeout(resizeDebounce);
+  resizeDebounce=setTimeout(()=>{
+    document.querySelectorAll('.editor-code').forEach(el=>{
+      const idx=+el.dataset.editor;
+      if(!isNaN(idx)) updateEditorLineCount(idx);
+    });
+  }, 150);
+});
+document.addEventListener('keydown',e=>{
+  const t=e.target;
+  if(t.dataset.searchinput===undefined) return;
+  const i=+t.dataset.searchinput;
+  if(e.key==='Enter'){ e.preventDefault(); goToMatch(i, e.shiftKey?-1:1); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeSearchBar(i); }
+});
+
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('on');
+  clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('on'),2400);
+}
+
+const restored = loadSession();
+render();
+if(restored) toast(`Sesión restaurada: ${S.files.length} archivo${S.files.length===1?'':'s'}`);
+</script>
+</body>
+</html>
