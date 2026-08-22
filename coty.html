@@ -616,7 +616,10 @@ img{max-width:100%;border-radius:8px;border:1px solid var(--border);margin:1rem 
 hr{border:none;border-top:1px solid var(--border);margin:2.5rem 0}
 code:not(pre code){font-family:var(--mono);font-size:.82em;background:var(--inline-code-bg);padding:.15em .4em;border-radius:4px;color:var(--fire)}
 .callout{border-left:2px solid var(--ambar);padding:1rem 1.25rem;background:var(--ambar-dim);border-radius:0 7px 7px 0;margin:1.5rem 0;font-size:.88rem;font-style:italic;color:var(--text);line-height:1.75;max-width:660px}
-.conv-table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-family:var(--mono);font-size:.72rem}
+.table-scroll{overflow-x:auto;margin:1.5rem 0;-webkit-overflow-scrolling:touch}
+.table-scroll::-webkit-scrollbar{height:6px}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:3px}
+.conv-table{width:100%;min-width:max-content;border-collapse:collapse;font-family:var(--mono);font-size:.72rem;margin:0}
 .conv-table th{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--border);color:var(--text-faint);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:.58rem}
 .conv-table td{padding:.55rem .8rem;border-bottom:1px solid var(--table-row-border);color:var(--text-dim);vertical-align:top}
 .conv-table tr:hover td{background:var(--glass)}
@@ -723,8 +726,17 @@ function buildStandaloneHTML(name, mdHtml, codeStore, initialDark){
     div.innerHTML=bq.innerHTML;
     bq.replaceWith(div);
   });
-  // tablas -> estilo conv-table
-  wrap.querySelectorAll('table').forEach(t=>t.classList.add('conv-table'));
+  // tablas -> estilo conv-table, envueltas en scroll horizontal para
+  // que tablas anchas (muchas columnas o contenido denso) no desfasen el
+  // ancho fijo del documento -- la tabla conserva su ancho natural y el
+  // contenedor absorbe el desborde con overflow-x.
+  wrap.querySelectorAll('table').forEach(t=>{
+    t.classList.add('conv-table');
+    const scrollWrap=document.createElement('div');
+    scrollWrap.className='table-scroll';
+    t.replaceWith(scrollWrap);
+    scrollWrap.appendChild(t);
+  });
 
   const nodes=[...wrap.childNodes].filter(n=>!(n.nodeType===3 && !n.textContent.trim()));
   let sections=[]; let current=null; let secIdx=0;
